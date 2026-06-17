@@ -1,0 +1,22 @@
+node_modules
+.next
+out
+build
+.env*.local
+.env
+.env.local
+.vercel
+.gitdata
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+.DS_Store
+
+# Hardhat
+cache
+artifacts
+typechain-types
+
+# Rust/Soroban build artifacts
+contracts/*/target/

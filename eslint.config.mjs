@@ -1,0 +1,22 @@
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+
+const eslintConfig = [
+  {
+    ignores: [
+      ".next/**",
+      ".vercel/**",
+      "node_modules/**",
+      // Hardhat tooling (CommonJS, not part of the Next.js app)
+      "hardhat.config.cjs",
+      "scripts/**",
+      "test/**",
+      "artifacts/**",
+      "cache/**",
+    ],
+  },
+  ...nextVitals,
+  ...nextTs,
+];
+
+export default eslintConfig;
