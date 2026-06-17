@@ -39,14 +39,15 @@ export function fromBaseUnits(units: bigint): number {
 }
 
 /**
- * Map a task UUID to a 32-byte Buffer for the Soroban contract's BytesN<32>.
+ * Map a task UUID to a { __bytes: hex } object for Soroban's BytesN<32>.
+ * No Buffer — safe in browser, serializable over JSON.
  */
-export function uuidToBytes32(uuid: string): Buffer {
+export function uuidToBytes32(uuid: string): { __bytes: string } {
   const hex = uuid.replace(/-/g, "").toLowerCase();
   if (hex.length !== 32 || /[^0-9a-f]/.test(hex)) {
     throw new Error(`Invalid task UUID for escrow: ${uuid}`);
   }
-  return Buffer.from(hex.padStart(64, "0"), "hex");
+  return { __bytes: hex.padStart(64, "0") };
 }
 
 /**

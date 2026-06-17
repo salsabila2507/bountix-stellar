@@ -155,11 +155,10 @@ export async function invokeSoroban(
 }
 
 /**
- * Serialize args for admin API — convert Buffers to hex strings.
+ * Serialize args for admin API — bigint → string, rest passes as-is.
  */
 function serializeForAdmin(args: unknown[]): unknown[] {
   return args.map((a) => {
-    if (Buffer.isBuffer(a)) return { __bytes: a.toString("hex") };
     if (typeof a === "bigint") return a.toString();
     return a;
   });
