@@ -16,12 +16,26 @@ export function PrivyLoginSection({
   useEffect(() => {
     if (!authenticated) return;
     (async () => {
-      const token = await getAccessToken();
-      if (token) {
-        const params = new URLSearchParams({ token });
-        if (referralCode) params.set("ref", referralCode);
-        window.location.href = `/auth/callback?${params}`;
+      try {
+        const token = await getAccessToken();
+        if (!token) return;
+        const res = await fetch("/api/auth/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+        if (!res.ok) {
+          console.error("Session creation failed:", await res.text());
+          return;
+        }
+      } catch (err) {
+        console.error("Session creation error:", err);
+        return;
       }
+      const url = referralCode
+        ? `/dashboard/profile?ref=${referralCode}`
+        : "/dashboard/profile";
+      window.location.href = url;
     })();
   }, [authenticated, referralCode, getAccessToken]);
 
