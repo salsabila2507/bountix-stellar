@@ -1,12 +1,19 @@
 import "dotenv/config";
+import crypto from "crypto";
+import { readFileSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 import { Keypair, Address, Operation, TransactionBuilder, BASE_FEE, Networks, rpc, nativeToScVal, xdr } from "@stellar/stellar-sdk";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(__dirname, "..");
 const RPC_URL = process.env.NEXT_PUBLIC_SOROBAN_RPC_URL || "https://soroban-testnet.stellar.org";
+const NETWORK_PASSPHRASE = Networks.TESTNET;
 const server = new rpc.Server(RPC_URL);
 const kp = Keypair.fromSecret(process.env.PRIVATE_KEY);
 const pubKey = kp.publicKey();
 
-const ESCROW = "CDHGTOJVVLMNTWYMUKZV7TFBZRE7JOXSTREE6IQYVZRDVKZE5J4MG7TP";
+const XLM_SAC = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
 
 function toScVal(v) {
   if (v instanceof xdr.ScVal) return v;
@@ -34,13 +41,26 @@ async function send(tx) {
   throw new Error("Timed out");
 }
 
-async function invoke(func, args) {
+async function invoke(contract, func, args) {
   const src = await server.getAccount(pubKey);
-  const tx = new TransactionBuilder(src, { fee: BASE_FEE, networkPassphrase: Networks.TESTNET })
-    .addOperation(Operation.invokeContractFunction({ contract: ESCROW, function: func, args: args.map(toScVal) }))
+  const tx = new TransactionBuilder(src, { fee: BASE_FEE, networkPassphrase: NETWORK_PASSPHRASE })
+    .addOperation(Operation.invokeContractFunction({ contract, function: func, args: args.map(toScVal) }))
     .setTimeout(30)
     .build();
   return await send(tx);
+}
+
+function computeContractId(sourceAddr, salt) {
+  const fromAddr = new xdr.ContractIdPreimageFromAddress({
+    address: sourceAddr.toScAddress(),
+    salt,
+  });
+  const preimage = xdr.ContractIdPreimage.contractIdPreimageFromAddress(fromAddr);
+  const networkId = crypto.createHash("sha256").update(NETWORK_PASSPHRASE).digest();
+  const envelope = xdr.HashIdPreimage.envelopeTypeContractId(
+    new xdr.HashIdPreimageContractId({ networkId, contractIdPreimage: preimage })
+  );
+  return Address.contract(crypto.createHash("sha256").update(envelope.toXDR()).digest());
 }
 
 const tasks = [
@@ -52,20 +72,54 @@ const tasks = [
 ];
 
 async function main() {
+  const WASM_PATH = join(ROOT, "contracts/soroban/target/wasm32v1-none/release/bountix_escrow.wasm");
   console.log(`Deployer: ${pubKey}`);
-  console.log(`Escrow:   ${ESCROW}\n`);
 
+  // 1. Upload WASM
+  console.log(`\nUpload escrow WASM...`);
+  const wasm = readFileSync(WASM_PATH);
+  let src = await server.getAccount(pubKey);
+  let tx = new TransactionBuilder(src, { fee: BASE_FEE, networkPassphrase: NETWORK_PASSPHRASE })
+    .addOperation(Operation.uploadContractWasm({ wasm }))
+    .setTimeout(30)
+    .build();
+  const uploadSim = await server.simulateTransaction(tx);
+  if (rpc.Api.isSimulationError(uploadSim)) throw new Error(`Upload sim err: ${uploadSim.error}`);
+  const wasmHash = Buffer.from(uploadSim.result.retval.bytes());
+  console.log(`  WASM hash: ${wasmHash.toString("hex")}`);
+  await send(tx);
+
+  // 2. Create escrow contract
+  console.log(`\nCreate escrow contract (XLM SAC: ${XLM_SAC})...`);
+  const salt = crypto.randomBytes(32);
+  const deployerAddr = Address.account(kp.rawPublicKey());
+  const escrowAddr = computeContractId(deployerAddr, salt);
+  const escrow = escrowAddr.toString();
+  console.log(`  Escrow: ${escrow}`);
+  src = await server.getAccount(pubKey);
+  tx = new TransactionBuilder(src, { fee: BASE_FEE, networkPassphrase: NETWORK_PASSPHRASE })
+    .addOperation(Operation.createCustomContract({ wasmHash, salt, address: deployerAddr }))
+    .setTimeout(30)
+    .build();
+  await send(tx);
+
+  // 3. Initialize
+  console.log(`\nInitialize admin=${pubKey}, treasury=${pubKey}, xlm=${XLM_SAC}...`);
+  await invoke(escrow, "initialize", [pubKey, pubKey, XLM_SAC]);
+
+  // 4. Fund tasks
   for (const task of tasks) {
     const hex = task.id.replace(/-/g, "").toLowerCase();
     const taskKey = Buffer.from(hex.padStart(64, "0"), "hex");
     const amount = BigInt(task.reward) * BigInt(10_000_000); // 1 XLM = 10^7 stroops
 
-    console.log(`[${task.title}] Funding ${task.reward} XLM...`);
-    const hash = await invoke("fund_escrow", [pubKey, taskKey, amount]);
-    console.log(`  ✅ ${hash}\n`);
+    console.log(`\n[${task.title}] Funding ${task.reward} XLM...`);
+    const hash = await invoke(escrow, "fund_escrow", [pubKey, taskKey, amount]);
+    console.log(`  ✅ ${hash}`);
   }
 
-  console.log("✅ All tasks funded!");
+  console.log(`\n✅ All tasks funded! Escrow address: ${escrow}`);
+  console.log(`Update lib/escrow.ts ESCROW_CONTRACT_ADDRESS to: ${escrow}`);
 }
 
 main().catch(e => console.error(`\n❌ ${e.message}`));
