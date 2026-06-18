@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { LoginForm } from "@/components/auth/login-form";
-import { createClient } from "@/utils/supabase/server";
+import { PrivyLoginSection } from "@/components/auth/privy-login-section";
 
 export const dynamic = "force-dynamic";
 
@@ -11,19 +9,7 @@ export const metadata = {
   description: "Log in to your Bountix account.",
 };
 
-export default async function LoginPage() {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      redirect("/dashboard/profile");
-    }
-  } catch {
-    // Env missing — render form anyway so the page doesn't break.
-  }
-
+export default function LoginPage() {
   return (
     <main className="comic-page min-h-screen overflow-hidden text-[#140625]">
       <div className="container-page py-8 sm:py-10">
@@ -36,7 +22,7 @@ export default async function LoginPage() {
         </Link>
 
         <section className="mx-auto mt-10 max-w-md">
-          <LoginForm />
+          <PrivyLoginSection />
         </section>
       </div>
     </main>

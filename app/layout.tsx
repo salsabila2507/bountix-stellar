@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/react";
 import { SiteFooter } from "@/components/site-footer";
+import { Providers } from "@/components/providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -10,12 +11,11 @@ export const metadata: Metadata = {
     template: "%s | Bountix",
   },
   description:
-    "Bountix is a task marketplace for posting work, reviewing submissions, and paying USDC rewards on Stellar through manual payment or escrow.",
+    "Bountix is a task marketplace for posting work, reviewing submissions, and paying rewards on Stellar through manual payment or escrow.",
   keywords: [
     "Bountix",
     "global task marketplace",
     "task rewards",
-    "USDC",
     "Stellar",
     "online tasks",
     "local help",
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Bountix | Task Marketplace for Community Work",
     description:
-      "Post tasks, review submissions, and pay approved work with manual payment or Stellar USDC escrow.",
+      "Post tasks, review submissions, and pay approved work with manual payment or Stellar escrow.",
     url: "https://www.bountix.xyz",
     siteName: "Bountix",
     type: "website",
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Bountix | Task Marketplace for Community Work",
     description:
-      "A task marketplace for posting work, submitting results, chatting, and managing USDC rewards on Stellar.",
+      "A task marketplace for posting work, submitting results, chatting, and managing rewards on Stellar.",
     images: ["/bountix-comic/hero-logo-latest.png"],
   },
 };
@@ -51,9 +51,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        {children}
-        <SiteFooter />
-        <Analytics />
+        <Providers>
+          {children}
+          <SiteFooter />
+          <Analytics />
+        </Providers>
       </body>
     </html>
   );

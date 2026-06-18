@@ -20,7 +20,7 @@ import {
   getReferralReviewStatus,
   type ReferralReviewStatus,
 } from "@/lib/referrals";
-import { createClient } from "@/utils/supabase/server";
+import { getServerUser } from "@/lib/server-user";
 import {
   PROFILE_LANGUAGE_LABEL,
   PROFILE_ROLE_LABEL,
@@ -53,25 +53,23 @@ export const metadata = {
 async function getSessionAndProfile(): Promise<
   { profile: Profile; referrals: ReferralSummary } | { profile: null }
 > {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { profile: null };
+  const serverUser = await getServerUser();
+  if (!serverUser) return { profile: null };
+  const { supabase, userId } = serverUser;
 
   const { data, error } = await supabase
     .from("profiles")
     .select(
       "id, username, display_name, bio, avatar_url, role, skills, wallet_address, social_links, preferred_language, can_use_platform, is_early_contributor, referral_code, created_at, updated_at",
     )
-    .eq("id", user.id)
+    .eq("id", userId)
     .maybeSingle();
 
   if (error || !data) return { profile: null };
   const { data: referralRows, count } = await supabase
     .from("referrals")
     .select("referred_id, created_at", { count: "exact" })
-    .eq("referrer_id", user.id)
+    .eq("referrer_id", userId)
     .order("created_at", { ascending: false })
     .limit(5);
 

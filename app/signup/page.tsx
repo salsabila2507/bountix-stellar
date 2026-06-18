@@ -1,9 +1,7 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { SignupForm } from "@/components/auth/signup-form";
 import { normalizeReferralCode } from "@/lib/referrals";
-import { createClient } from "@/utils/supabase/server";
+import { PrivyLoginSection } from "@/components/auth/privy-login-section";
 
 type SignupPageProps = {
   searchParams: Promise<{
@@ -23,18 +21,6 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
   const referralParam = Array.isArray(params.ref) ? params.ref[0] : params.ref;
   const referralCode = normalizeReferralCode(referralParam ?? null);
 
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      redirect("/dashboard/profile");
-    }
-  } catch {
-    // Env missing — render form anyway so the page doesn't break.
-  }
-
   return (
     <main className="comic-page min-h-screen overflow-hidden text-[#140625]">
       <div className="container-page py-8 sm:py-10">
@@ -47,7 +33,7 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
         </Link>
 
         <section className="mx-auto mt-10 max-w-md">
-          <SignupForm referralCode={referralCode} />
+          <PrivyLoginSection mode="signup" referralCode={referralCode} />
         </section>
       </div>
     </main>
