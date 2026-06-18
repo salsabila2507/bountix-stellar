@@ -130,10 +130,17 @@ function getReferralStatusLabel(
 }
 
 export default async function DashboardProfilePage() {
-  const locale = await getRequestLocale();
-  const t = createTranslator(locale);
-  const result = await getSessionAndProfile();
-  if (!result.profile) {
+  let locale;
+  let t;
+  let result;
+  try {
+    locale = await getRequestLocale();
+    t = createTranslator(locale);
+    result = await getSessionAndProfile();
+  } catch {
+    redirect("/login");
+  }
+  if (!result || !result.profile) {
     redirect("/login");
   }
   const profile = result.profile;
