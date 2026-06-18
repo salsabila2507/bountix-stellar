@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 
@@ -8,34 +8,28 @@ export function OAuthButtons({ referralCode }: { referralCode?: string }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleGoogleSignIn = useCallback(async () => {
+  const handleGoogleSignIn = () => {
     setIsLoading(true);
     setError(null);
 
-    try {
-      const supabase = createClient();
-      const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(
-        /\/$/,
-        "",
-      );
-      const base =
-        configured?.startsWith("https://") ? configured : window.location.origin;
-      const redirectTo = `${base}/auth/callback${referralCode ? `?ref=${encodeURIComponent(referralCode)}` : ""}`;
-
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo },
-      });
-
-      if (oauthError) {
-        setError(oauthError.message);
-        setIsLoading(false);
-      }
-    } catch {
-      setError("An unexpected error occurred. Please try again.");
-      setIsLoading(false);
+    if (referralCode) {
+      sessionStorage.setItem("bountix_ref", referralCode);
     }
-  }, [referralCode]);
+
+    const supabase = createClient();
+    const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(
+      /\/$/,
+      "",
+    );
+    const base =
+      configured?.startsWith("https://") ? configured : window.location.origin;
+    const redirectTo = `${base}/auth/callback`;
+
+    supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo },
+    });
+  };
 
   return (
     <div className="space-y-3">
