@@ -14,7 +14,7 @@ export function createClient() {
   if (!cachedClient) {
     cachedClient = createSupabaseClient(supabaseUrl, supabaseKey, {
       auth: {
-        flowType: "implicit",
+        flowType: "pkce",
         autoRefreshToken: true,
         detectSessionInUrl: true,
         persistSession: true,

@@ -28,6 +28,8 @@ export function OAuthButtons({ referralCode }: { referralCode?: string }) {
     supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo },
+    }).catch(() => {
+      // navigation happens before promise resolves — ignore
     });
   };
 
