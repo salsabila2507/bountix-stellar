@@ -29,6 +29,7 @@ import {
   type ProfileRole,
   type SocialLinks,
 } from "@/lib/profile";
+import { PrivyClient } from "@privy-io/server-auth";
 
 type ReferredUser = {
   id: string;
@@ -49,6 +50,93 @@ export const metadata = {
   title: "Your Profile",
   description: "Your Bountix profile, status, and task access.",
 };
+
+async function getSessionAndProfileFromToken(
+  token: string,
+): Promise<{ profile: Profile; referrals: ReferralSummary } | { profile: null }> {
+  try {
+    const { createClient } = await import("@/utils/supabase/server");
+
+    const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? "";
+    const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET ?? "";
+    if (!PRIVY_APP_ID || !PRIVY_APP_SECRET) return { profile: null };
+
+    const privy = new PrivyClient(PRIVY_APP_ID, PRIVY_APP_SECRET);
+    const claims = await privy.verifyAuthToken(token);
+    const user = await privy.getUser(claims.userId);
+    const privyDid = user.id;
+
+    const supabase = await createClient();
+
+    let { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("privy_did", privyDid)
+      .maybeSingle();
+
+    if (profileError || !profile) {
+      const { data: newProfile } = await supabase
+        .from("profiles")
+        .insert({ privy_did: privyDid })
+        .select("*")
+        .single();
+      profile = newProfile;
+    }
+    if (!profile) return { profile: null };
+
+    const { data: referralRows, count } = await supabase
+      .from("referrals")
+      .select("referred_id, created_at", { count: "exact" })
+      .eq("referrer_id", profile.id)
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    const rows = (referralRows ?? []) as Array<{
+      referred_id: string;
+      created_at: string;
+    }>;
+    const referredIds = rows.map((r) => r.referred_id);
+    const { data: referredProfiles } = referredIds.length
+      ? await supabase
+          .from("profiles")
+          .select("id, username, display_name, created_at")
+          .in("id", referredIds)
+      : { data: [] };
+
+    const referredById = new Map(
+      ((referredProfiles ?? []) as Array<{
+        id: string;
+        username: string;
+        display_name: string | null;
+        created_at: string;
+      }>).map((r) => [r.id, r]),
+    );
+
+    const referredUsers = rows
+      .map((row) => {
+        const r = referredById.get(row.referred_id);
+        if (!r) return null;
+        return { ...r, referred_at: row.created_at };
+      })
+      .filter(Boolean) as ReferredUser[];
+
+    return {
+      profile: {
+        ...profile,
+        role: profile.role as ProfileRole,
+        preferred_language: profile.preferred_language as ProfileLanguage,
+        social_links: (profile.social_links ?? {}) as SocialLinks,
+        skills: profile.skills ?? [],
+      } as Profile,
+      referrals: {
+        totalInvited: count ?? rows.length,
+        referredUsers,
+      },
+    };
+  } catch {
+    return { profile: null };
+  }
+}
 
 async function getSessionAndProfile(): Promise<
   { profile: Profile; referrals: ReferralSummary } | { profile: null }
@@ -129,14 +217,23 @@ function getReferralStatusLabel(
   return t("referral.status.inviteToQualify");
 }
 
-export default async function DashboardProfilePage() {
+export default async function DashboardProfilePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ token?: string }>;
+}) {
+  const params = await searchParams;
+  const tokenFromUrl = params.token;
+
   let locale;
   let t;
   let result;
   try {
     locale = await getRequestLocale();
     t = createTranslator(locale);
-    result = await getSessionAndProfile();
+    result = tokenFromUrl
+      ? await getSessionAndProfileFromToken(tokenFromUrl)
+      : await getSessionAndProfile();
   } catch {
     redirect("/login");
   }
