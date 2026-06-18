@@ -25,7 +25,6 @@ export async function getServerUser() {
       .from("profiles")
       .insert({
         privy_did: privyUser.id,
-        email: privyUser.email,
       })
       .select("id")
       .single();

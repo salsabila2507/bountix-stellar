@@ -12,18 +12,29 @@ export function PrivyLoginSection({
   mode?: "login" | "signup";
   referralCode?: string;
 }) {
-  const { login, ready, authenticated } = usePrivy();
+  const { login, ready, authenticated, getAccessToken } = usePrivy();
   const router = useRouter();
 
   useEffect(() => {
-    if (authenticated) {
+    if (!authenticated) return;
+    (async () => {
+      try {
+        const token = await getAccessToken();
+        if (token) {
+          await fetch("/api/auth/set-privy-cookie", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token }),
+          });
+        }
+      } catch {}
       const url = referralCode
         ? `/dashboard/profile?ref=${referralCode}`
         : "/dashboard/profile";
       router.push(url);
       router.refresh();
-    }
-  }, [authenticated, router, referralCode]);
+    })();
+  }, [authenticated, router, referralCode, getAccessToken]);
 
   if (mode === "login") {
     return (

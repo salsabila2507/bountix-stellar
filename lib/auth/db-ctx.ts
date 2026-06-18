@@ -25,10 +25,9 @@ export async function getAuthCtx(): Promise<AuthCtx | null> {
 
   const { data: newProfile } = await supabase
     .from("profiles")
-    .insert({
-      privy_did: privyUser.id,
-      email: privyUser.email,
-    })
+      .insert({
+        privy_did: privyUser.id,
+      })
     .select("id")
     .single();
 
