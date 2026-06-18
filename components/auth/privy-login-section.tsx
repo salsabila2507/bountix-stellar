@@ -1,7 +1,6 @@
 "use client";
 
 import { usePrivy } from "@privy-io/react-auth";
-import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { LoaderCircle, LogIn, UserPlus } from "lucide-react";
 
@@ -13,28 +12,18 @@ export function PrivyLoginSection({
   referralCode?: string;
 }) {
   const { login, ready, authenticated, getAccessToken } = usePrivy();
-  const router = useRouter();
 
   useEffect(() => {
     if (!authenticated) return;
     (async () => {
-      try {
-        const token = await getAccessToken();
-        if (token) {
-          await fetch("/api/auth/set-privy-cookie", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token }),
-          });
-        }
-      } catch {}
-      const url = referralCode
-        ? `/dashboard/profile?ref=${referralCode}`
-        : "/dashboard/profile";
-      router.push(url);
-      router.refresh();
+      const token = await getAccessToken();
+      if (token) {
+        const params = new URLSearchParams({ token });
+        if (referralCode) params.set("ref", referralCode);
+        window.location.href = `/auth/callback?${params}`;
+      }
     })();
-  }, [authenticated, router, referralCode, getAccessToken]);
+  }, [authenticated, referralCode, getAccessToken]);
 
   if (mode === "login") {
     return (
