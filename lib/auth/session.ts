@@ -5,7 +5,6 @@ const SESSION_SECRET = process.env.SESSION_SECRET ?? "bountix-default-session-se
 
 export type SessionUser = {
   id: string;
-  email: string | null;
 };
 
 function sign(payload: string): string {

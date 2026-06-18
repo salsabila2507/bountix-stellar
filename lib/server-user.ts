@@ -12,7 +12,7 @@ export async function getServerUser() {
       .maybeSingle();
 
     if (profile) {
-      return { supabase, userId: profile.id, email: privyUser.email };
+      return { supabase, userId: profile.id };
     }
 
     const { data: newProfile } = await supabase
@@ -24,10 +24,10 @@ export async function getServerUser() {
       .single();
 
     if (newProfile) {
-      return { supabase, userId: newProfile.id, email: privyUser.email };
+      return { supabase, userId: newProfile.id };
     }
 
-    return { supabase, userId: privyUser.id, email: privyUser.email };
+    return { supabase, userId: privyUser.id };
   }
 
   return null;

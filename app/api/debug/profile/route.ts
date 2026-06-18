@@ -8,7 +8,7 @@ export async function GET() {
     if (!serverUser) {
       return Response.json({ error: "No server user found" }, { status: 401 });
     }
-    const { supabase, userId, email } = serverUser;
+    const { supabase, userId } = serverUser;
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
@@ -20,7 +20,7 @@ export async function GET() {
       return Response.json({ error: "Profile query failed", details: profileError }, { status: 500 });
     }
 
-    return Response.json({ userId, email, profile });
+    return Response.json({ userId, profile });
   } catch (e: unknown) {
     const err = e as Error;
     return Response.json({ error: err?.message || String(e), stack: err?.stack }, { status: 500 });

@@ -4,7 +4,6 @@ import { createClient } from "@/utils/supabase/server";
 export type AuthCtx = {
   supabase: Awaited<ReturnType<typeof createClient>>;
   userId: string;
-  email: string | null;
 };
 
 export async function getAuthCtx(): Promise<AuthCtx | null> {
@@ -20,7 +19,7 @@ export async function getAuthCtx(): Promise<AuthCtx | null> {
     .maybeSingle();
 
   if (profile) {
-    return { supabase, userId: profile.id, email: privyUser.email };
+    return { supabase, userId: profile.id };
   }
 
   const { data: newProfile } = await supabase
@@ -32,10 +31,10 @@ export async function getAuthCtx(): Promise<AuthCtx | null> {
     .single();
 
   if (newProfile) {
-    return { supabase, userId: newProfile.id, email: privyUser.email };
+    return { supabase, userId: newProfile.id };
   }
 
-  return { supabase, userId: privyUser.id, email: privyUser.email };
+  return { supabase, userId: privyUser.id };
 }
 
 export async function requireAuthCtx(): Promise<AuthCtx> {
