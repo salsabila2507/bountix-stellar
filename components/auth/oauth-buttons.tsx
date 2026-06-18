@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { LoaderCircle } from "lucide-react";
-import { createClient } from "@/utils/supabase/client";
+
+const SUPABASE_URL = "https://kjksttlrssuiygzxpsfe.supabase.co";
 
 export function OAuthButtons({ referralCode }: { referralCode?: string }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -19,27 +20,20 @@ export function OAuthButtons({ referralCode }: { referralCode?: string }) {
     return window.location.origin;
   };
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const supabase = createClient();
-      const redirectUrl = new URL("/auth/callback", getRedirectBase());
-      if (referralCode) {
-        redirectUrl.searchParams.set("ref", referralCode);
-      }
-      const { error } = await supabase.auth.signInWithOAuth({
+      const base = getRedirectBase();
+      const callback = `${base}/auth/callback${referralCode ? `?ref=${encodeURIComponent(referralCode)}` : ""}`;
+
+      const params = new URLSearchParams({
         provider: "google",
-        options: {
-          redirectTo: redirectUrl.toString(),
-        },
+        redirect_to: callback,
       });
 
-      if (error) {
-        setError("Could not sign in with Google. Please try again.");
-        setIsLoading(false);
-      }
+      window.location.href = `${SUPABASE_URL}/auth/v1/authorize?${params}`;
     } catch {
       setError("An unexpected error occurred. Please try again.");
       setIsLoading(false);
