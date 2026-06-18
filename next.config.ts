@@ -24,8 +24,12 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  turbopack: {
-    root: __dirname,
+  webpack(config: any) {
+    config.resolve ??= {};
+    config.resolve.alias ??= {};
+    config.resolve.alias["@stripe/crypto"] = false;
+    config.resolve.alias["@farcaster/mini-app-solana"] = false;
+    return config;
   },
   images: {
     dangerouslyAllowSVG: true,
