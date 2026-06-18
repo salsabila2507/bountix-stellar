@@ -8,29 +8,42 @@ export function OAuthButtons({ referralCode }: { referralCode?: string }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleGoogleSignIn = () => {
-    setIsLoading(true);
-    setError(null);
-
-    if (referralCode) {
-      sessionStorage.setItem("bountix_ref", referralCode);
-    }
-
-    const supabase = createClient();
+  const getRedirectBase = () => {
     const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(
       /\/$/,
       "",
     );
-    const base =
-      configured?.startsWith("https://") ? configured : window.location.origin;
-    const redirectTo = `${base}/auth/callback`;
+    if (configured?.startsWith("https://")) {
+      return configured;
+    }
+    return window.location.origin;
+  };
 
-    supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo },
-    }).catch(() => {
-      // navigation happens before promise resolves — ignore
-    });
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const supabase = createClient();
+      const redirectUrl = new URL("/auth/callback", getRedirectBase());
+      if (referralCode) {
+        redirectUrl.searchParams.set("ref", referralCode);
+      }
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: redirectUrl.toString(),
+        },
+      });
+
+      if (error) {
+        setError("Could not sign in with Google. Please try again.");
+        setIsLoading(false);
+      }
+    } catch {
+      setError("An unexpected error occurred. Please try again.");
+      setIsLoading(false);
+    }
   };
 
   return (
