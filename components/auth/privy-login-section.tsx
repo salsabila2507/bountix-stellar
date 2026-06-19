@@ -25,6 +25,7 @@ export function PrivyLoginSection({
 
     void logout().finally(() => {
       setHasHandledAuthError(true);
+      window.history.replaceState(null, "", "/login");
     });
   }, [authError, authenticated, hasHandledAuthError, logout, ready]);
 

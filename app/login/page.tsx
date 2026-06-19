@@ -5,6 +5,9 @@ import { PrivyLoginSection } from "@/components/auth/privy-login-section";
 type LoginPageProps = {
   searchParams: Promise<{
     auth_error?: string | string[];
+    privy_oauth_code?: string | string[];
+    privy_oauth_provider?: string | string[];
+    privy_oauth_state?: string | string[];
   }>;
 };
 
@@ -20,6 +23,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const authError = Array.isArray(params.auth_error)
     ? params.auth_error[0]
     : params.auth_error;
+  const hasPrivyOAuthParams =
+    Boolean(params.privy_oauth_code) ||
+    Boolean(params.privy_oauth_provider) ||
+    Boolean(params.privy_oauth_state);
 
   return (
     <main className="comic-page min-h-screen overflow-hidden text-[#140625]">
@@ -33,7 +40,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </Link>
 
         <section className="mx-auto mt-10 max-w-md">
-          <PrivyLoginSection authError={Boolean(authError)} />
+          <PrivyLoginSection authError={Boolean(authError) && !hasPrivyOAuthParams} />
         </section>
       </div>
     </main>

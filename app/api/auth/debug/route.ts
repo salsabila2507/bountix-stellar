@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { PrivyClient } from "@privy-io/server-auth";
-import { createClient } from "@/utils/supabase/server";
+import { createAdminClient, createClient } from "@/utils/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +26,14 @@ export async function GET() {
     const { error } = await supabase.from("profiles").select("id").limit(1);
     supabaseProfilesSelect = error ? error.message : "ok";
 
-    const { error: adminError } = await supabase.auth.admin.listUsers({
+    const adminSupabase = createAdminClient();
+    const { error: adminSelectError } = await adminSupabase
+      .from("profiles")
+      .select("id")
+      .limit(1);
+    if (!adminSelectError) supabaseProfilesSelect = "ok";
+
+    const { error: adminError } = await adminSupabase.auth.admin.listUsers({
       page: 1,
       perPage: 1,
     });

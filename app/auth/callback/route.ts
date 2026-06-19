@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { PrivyClient } from "@privy-io/server-auth";
 import { createSessionCookie } from "@/lib/auth/session";
 import { getDefaultPrivyUsername } from "@/lib/auth/profile";
-import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       : await privy.getUser((await privy.verifyAuthToken(token ?? "")).userId);
     const privyDid = user.id;
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     const { data: existing } = await supabase
       .from("profiles")

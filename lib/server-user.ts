@@ -1,9 +1,9 @@
 import { getPrivyUser } from "@/lib/auth/privy-server";
 import { getDefaultPrivyUsername } from "@/lib/auth/profile";
-import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/server";
 
 export async function getServerUser() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const privyUser = await getPrivyUser();
   if (privyUser) {
     const { data: profile } = await supabase
