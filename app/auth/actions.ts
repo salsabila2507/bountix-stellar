@@ -1,6 +1,5 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getPublicSiteUrl, normalizeReferralCode } from "@/lib/referrals";
 import { createClient } from "@/utils/supabase/server";
@@ -228,13 +227,4 @@ export async function resetPasswordAction(
   redirect("/login?message=Password reset successfully. Please log in.");
 }
 
-export async function logoutAction() {
-  try {
-    const cookieStore = await cookies();
-    cookieStore.set("session", "", { maxAge: 0, path: "/" });
-    cookieStore.set("privy-token", "", { maxAge: 0, path: "/" });
-  } catch {
-    // Cookie clear best-effort
-  }
-  redirect("/");
-}
+

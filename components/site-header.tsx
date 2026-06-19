@@ -1,13 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Bell, LogOut, Menu, User } from "lucide-react";
+import { Bell, Menu, User } from "lucide-react";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { ButtonLink } from "@/components/ui/button";
 import { createTranslator, type TranslationKey } from "@/lib/i18n";
 import { getRequestLocale } from "@/lib/i18n/server";
 import { getUnreadNotificationCount } from "@/lib/notifications";
-import { logoutAction } from "@/app/auth/actions";
 import { getSessionUser } from "@/lib/auth/session";
+import { LogoutButton } from "@/components/auth/logout-button";
 
 type NavLink = {
   href: string;
@@ -136,15 +136,7 @@ export async function SiteHeader() {
                         ) : null}
                       </Link>
                     ))}
-                    <form action={logoutAction}>
-                      <button
-                        type="submit"
-                        className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border-2 border-[#140625] bg-[#ffdd3d] px-3 py-2 text-xs font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#ff4fb8] hover:text-white"
-                      >
-                        <LogOut aria-hidden="true" className="h-4 w-4" />
-                        {t("common.logout")}
-                      </button>
-                    </form>
+                    <LogoutButton label={t("common.logout")} />
                   </div>
                 </div>
               </details>
@@ -223,15 +215,7 @@ export async function SiteHeader() {
                         ) : null}
                       </Link>
                     ))}
-                    <form action={logoutAction}>
-                      <button
-                        type="submit"
-                        className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border-2 border-[#140625] bg-[#ffdd3d] px-3 py-2 text-sm font-black text-[#140625] shadow-[3px_3px_0_#140625] transition hover:bg-[#ff4fb8] hover:text-white"
-                      >
-                        <LogOut aria-hidden="true" className="h-4 w-4" />
-                        {t("common.logout")}
-                      </button>
-                    </form>
+                    <LogoutButton label={t("common.logout")} />
                   </>
                 ) : (
                   <>
