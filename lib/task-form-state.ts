@@ -16,6 +16,7 @@ export type TaskFormState = {
     eligibility_rules?: string;
     access_level?: string;
     payment_method?: string;
+    payment_token?: string;
   };
   taskId?: string;
 };

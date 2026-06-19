@@ -173,6 +173,7 @@ async function main() {
     nativeToScVal(deployerAddr),
     nativeToScVal(deployerAddr),
     nativeToScVal(xlmAddr),
+    nativeToScVal(xlmAddr),
   ];
 
   const initTx = new TransactionBuilder(initSource, {
@@ -209,7 +210,7 @@ async function main() {
       Operation.invokeContractFunction({
         contract: contractAddr.toString(),
         function: "fund_escrow",
-        args: [toScVal(kp.publicKey()), toScVal(taskKey), toScVal(amount)],
+        args: [toScVal(kp.publicKey()), toScVal(taskKey), toScVal(amount), toScVal(XLM_TOKEN_ID)],
       }),
     )
     .setTimeout(30)

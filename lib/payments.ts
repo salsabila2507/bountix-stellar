@@ -1,26 +1,36 @@
 /**
  * Bountix payment constants.
  *
- * Direction: USDC only on Stellar. No custom token, no USDT.
- * Manual payment and the deployed Stellar mainnet escrow flow are live payment
- * paths for Bountix rewards.
- *
- * See docs/constraints.md for the full payment + free-tier rules.
+ * Direction: USDC + USDT on Stellar via Soroban escrow.
  */
 
-export const PAYMENT_TOKEN = "USDC" as const;
-export type PaymentToken = typeof PAYMENT_TOKEN;
+export const PAYMENT_TOKENS = ["USDC", "USDT"] as const;
+export type PaymentToken = (typeof PAYMENT_TOKENS)[number];
+
+export function isPaymentToken(value: string): value is PaymentToken {
+  return (PAYMENT_TOKENS as readonly string[]).includes(value);
+}
 
 export const CHAIN_NAME = "Stellar" as const;
-export const STELLAR_NETWORK_CHAIN_ID = 8453; // TODO: update when deployed
-export const STELLAR_TESTNET_CHAIN_ID = 84532; // TODO: update when deployed
+export const STELLAR_NETWORK_CHAIN_ID = 8453;
+export const STELLAR_TESTNET_CHAIN_ID = 84532;
 
-/** XLM Stellar Asset Contract on testnet (native Stellar asset wrapped for Soroban). */
+/** USDC Stellar Asset Contract on testnet. */
 export const STELLAR_USDC_ADDRESS =
   "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
 
-/** XLM has 7 decimals on Stellar (1 XLM = 10_000_000 stroops). */
-export const USDC_DECIMALS = 7;
+/** USDT Stellar Asset Contract on testnet (env override). */
+export const STELLAR_USDT_ADDRESS =
+  process.env.NEXT_PUBLIC_SOROBAN_USDT_ADDRESS ?? STELLAR_USDC_ADDRESS;
+
+/** Stellar assets use 7 decimals on Soroban. */
+export const STELLAR_TOKEN_DECIMALS = 7;
+export const USDC_DECIMALS = STELLAR_TOKEN_DECIMALS;
+
+export const TOKEN_ADDRESSES: Record<PaymentToken, string> = {
+  USDC: STELLAR_USDC_ADDRESS,
+  USDT: STELLAR_USDT_ADDRESS,
+};
 
 export type PaymentStatus =
   | "unpaid"
@@ -37,23 +47,18 @@ export const paymentStatusLabel: Record<PaymentStatus, string> = {
   disputed: "Disputed",
 };
 
-/**
- * Format a numeric USDC amount for display.
- * Always returns "<n> USDC" with thousands separator and up to 2 fraction digits.
- * Returns "0 USDC" for null/undefined/NaN.
- */
-export function formatUsdc(amount: number | null | undefined): string {
+export function formatUsdc(
+  amount: number | null | undefined,
+  token: PaymentToken = "USDC",
+): string {
   if (amount === null || amount === undefined || Number.isNaN(amount)) {
-    return `0 ${PAYMENT_TOKEN}`;
+    return `0 ${token}`;
   }
-
   const formatted = new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(amount);
-
-  return `${formatted} ${PAYMENT_TOKEN}`;
+  return `${formatted} ${token}`;
 }
 
-/** Soroban escrow contract is deployed and live on testnet. */
 export const escrowOnStellarLive = true;

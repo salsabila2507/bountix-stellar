@@ -192,6 +192,7 @@ async function main() {
     kp.publicKey(),
     kp.publicKey(),
     tokenId,
+    tokenId,
   ]);
   console.log(`  Escrow initialized`);
 
@@ -206,6 +207,7 @@ async function main() {
     kp.publicKey(),
     taskKey,
     amount,
+    tokenId,
   ]);
   console.log(`  ✅ Funded! Tx: ${fundResult}`);
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { getIdentityToken, usePrivy } from "@privy-io/react-auth";
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 import { LoaderCircle, LogIn, TriangleAlert, UserPlus } from "lucide-react";
 
 export function PrivyLoginSection({
@@ -14,23 +14,24 @@ export function PrivyLoginSection({
   authError?: boolean;
 }) {
   const { login, logout, ready, authenticated, getAccessToken } = usePrivy();
-  const [hasHandledAuthError, setHasHandledAuthError] = useState(!authError);
+  const hasHandledAuthError = useRef(!authError);
 
   useEffect(() => {
-    if (!authError || hasHandledAuthError || !ready) return;
-    if (!authenticated) {
-      setHasHandledAuthError(true);
-      return;
-    }
+    if (!authError || hasHandledAuthError.current || !ready) return;
 
-    void logout().finally(() => {
-      setHasHandledAuthError(true);
-      window.history.replaceState(null, "", "/login");
-    });
-  }, [authError, authenticated, hasHandledAuthError, logout, ready]);
+    const handleAuthError = async () => {
+      if (authenticated) {
+        await logout();
+        window.history.replaceState(null, "", "/login");
+      }
+      hasHandledAuthError.current = true;
+    };
+
+    void handleAuthError();
+  }, [authError, authenticated, logout, ready]);
 
   useEffect(() => {
-    if (authError && !hasHandledAuthError) return;
+    if (authError && !hasHandledAuthError.current) return;
     if (!authenticated) return;
     (async () => {
       const idToken = await getIdentityToken();
@@ -43,7 +44,7 @@ export function PrivyLoginSection({
       if (referralCode) url += `&ref=${encodeURIComponent(referralCode)}`;
       window.location.href = url;
     })();
-  }, [authError, authenticated, referralCode, getAccessToken, hasHandledAuthError]);
+  }, [authError, authenticated, referralCode, getAccessToken]);
 
   if (mode === "login") {
     return (

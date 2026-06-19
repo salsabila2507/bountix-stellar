@@ -105,7 +105,7 @@ async function main() {
 
   // 3. Initialize
   console.log(`\nInitialize admin=${pubKey}, treasury=${pubKey}, xlm=${XLM_SAC}...`);
-  await invoke(escrow, "initialize", [pubKey, pubKey, XLM_SAC]);
+  await invoke(escrow, "initialize", [pubKey, pubKey, XLM_SAC, XLM_SAC]);
 
   // 4. Fund tasks
   for (const task of tasks) {
@@ -114,7 +114,7 @@ async function main() {
     const amount = BigInt(task.reward) * BigInt(10_000_000); // 1 XLM = 10^7 stroops
 
     console.log(`\n[${task.title}] Funding ${task.reward} XLM...`);
-    const hash = await invoke(escrow, "fund_escrow", [pubKey, taskKey, amount]);
+    const hash = await invoke(escrow, "fund_escrow", [pubKey, taskKey, amount, XLM_SAC]);
     console.log(`  ✅ ${hash}`);
   }
 

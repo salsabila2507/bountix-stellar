@@ -182,18 +182,26 @@ async function main() {
   const adminAddr = deployerAddr;
   const treasuryAddr = deployerAddr;
 
-  // Stellar testnet USDC Soroban token contract (SEP-41)
-  const USDC_CONTRACT_ID = "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
+  // Stellar testnet token contracts (SEP-41). USDT falls back to USDC for local
+  // test deployments until a dedicated testnet USDT contract is configured.
+  const USDC_CONTRACT_ID =
+    process.env.NEXT_PUBLIC_SOROBAN_USDC_ADDRESS ??
+    "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
+  const USDT_CONTRACT_ID =
+    process.env.NEXT_PUBLIC_SOROBAN_USDT_ADDRESS ?? USDC_CONTRACT_ID;
   const usdcAddr = Address.fromString(USDC_CONTRACT_ID);
+  const usdtAddr = Address.fromString(USDT_CONTRACT_ID);
 
   console.log(`  Admin:    ${adminAddr.toString()}`);
   console.log(`  Treasury: ${treasuryAddr.toString()}`);
   console.log(`  USDC:     ${usdcAddr.toString()}`);
+  console.log(`  USDT:     ${usdtAddr.toString()}`);
 
   const initArgs = [
     nativeToScVal(adminAddr),
     nativeToScVal(treasuryAddr),
     nativeToScVal(usdcAddr),
+    nativeToScVal(usdtAddr),
   ];
 
   const initTx = new TransactionBuilder(source3, {

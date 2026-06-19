@@ -29,6 +29,7 @@ const CONTRACT_ID =
   process.env.ESCROW_CONTRACT_ADDRESS ||
   "CCCGXM2NFZZCZAN4FA3CWCDVUGSC2DITXRJV7SBUA6NB5FB7KI4PUTJE";
 const USDC_CONTRACT_ID =
+  process.env.NEXT_PUBLIC_SOROBAN_USDC_ADDRESS ||
   "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
 
 const server = new rpc.Server(RPC_URL, { allowHttp: true });
@@ -149,9 +150,9 @@ async function main() {
 
   // Fund escrow (1 USDC = 10_000_000 units with 7 decimals)
   const amount = BigInt(10_000_000);
-  console.log(`\n1. fund_escrow(payer=${kp.publicKey()}, taskKey=${taskKey.toString("hex")}, amount=${amount})`);
+  console.log(`\n1. fund_escrow(payer=${kp.publicKey()}, taskKey=${taskKey.toString("hex")}, amount=${amount}, token=${USDC_CONTRACT_ID})`);
   try {
-    const fundResult = await invoke("fund_escrow", [kp.publicKey(), taskKey, amount], kp);
+    const fundResult = await invoke("fund_escrow", [kp.publicKey(), taskKey, amount, USDC_CONTRACT_ID], kp);
     console.log(`   ✅ Funded! Tx hash: ${fundResult.hash.toString("hex")}`);
   } catch (e) {
     console.log(`   ❌ Fund failed: ${e.message}`);

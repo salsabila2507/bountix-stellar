@@ -228,7 +228,7 @@ export default async function TaskDetailPage({ params }: RouteParams) {
                         : t("common.reward")}
                     </p>
                     <p className="mt-2 inline-flex items-center gap-1.5 text-lg font-black text-[#140625]">
-                      {formatUsdc(dbTask.reward_amount ?? 0)}
+                      {formatUsdc(dbTask.reward_amount ?? 0, dbTask.payment_token)}
                       <Image src="/bountix-comic/stellar-icon.svg" alt="Stellar" width={18} height={18} className="h-[18px] w-[18px] object-contain" />
                     </p>
                   </div>
@@ -358,6 +358,7 @@ export default async function TaskDetailPage({ params }: RouteParams) {
                         rewardAmount={dbTask.reward_amount ?? 0}
                         rewardMode={dbTask.reward_mode}
                         winnerCount={dbTask.raffle_winner_count}
+                        paymentToken={dbTask.payment_token}
                         locale={locale}
                       />
                     )

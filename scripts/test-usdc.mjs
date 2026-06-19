@@ -23,7 +23,10 @@ const server = new rpc.Server(RPC_URL);
 const kp = Keypair.fromSecret(process.env.PRIVATE_KEY);
 const pubKey = kp.publicKey();
 
-const USDC_SAC = "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
+const USDC_SAC =
+  process.env.NEXT_PUBLIC_SOROBAN_USDC_ADDRESS ||
+  "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
+const USDT_SAC = process.env.NEXT_PUBLIC_SOROBAN_USDT_ADDRESS || USDC_SAC;
 const WASM_PATH = join(ROOT, "contracts/soroban/target/wasm32v1-none/release/bountix_escrow.wasm");
 
 function toScVal(v) {
@@ -138,7 +141,7 @@ async function main() {
   // 4. Initialize
   console.log(`\nInitialize...`);
   await invoke(contractAddr.toString(), "initialize", [
-    pubKey, pubKey, USDC_SAC
+    pubKey, pubKey, USDC_SAC, USDT_SAC
   ]);
   console.log(`  Initialized`);
 
@@ -147,7 +150,7 @@ async function main() {
   const taskKey = Buffer.from(crypto.randomBytes(32));
   const amount = BigInt(10_000_000);
   const hash = await invoke(contractAddr.toString(), "fund_escrow", [
-    pubKey, taskKey, amount
+    pubKey, taskKey, amount, USDC_SAC
   ]);
   console.log(`  ✅ Funded! Tx: ${hash}`);
 

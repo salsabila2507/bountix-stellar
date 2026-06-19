@@ -1,3 +1,5 @@
+import type { PaymentToken } from "@/lib/payments";
+
 export const TASK_STATUSES = [
   "draft",
   "open",
@@ -38,7 +40,11 @@ export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
   manual: "Manual payment",
-  escrow_stellar: "Escrow USDC on Stellar",
+  escrow_stellar: "Escrow on Stellar",
+};
+export const PAYMENT_TOKEN_LABEL: Record<PaymentToken, string> = {
+  USDC: "USDC",
+  USDT: "USDT",
 };
 
 export const REWARD_MODES = ["fixed", "raffle"] as const;
@@ -120,6 +126,7 @@ export type DbTask = {
   eligibility_rules: string | null;
   access_level: TaskAccessLevel;
   payment_method: PaymentMethod;
+  payment_token: PaymentToken;
   escrow_contract_address: string | null;
   escrow_tx_hash: string | null;
   created_at: string;
@@ -128,7 +135,7 @@ export type DbTask = {
 
 /** Lightweight column list for list views — minimises row read size. */
 export const TASK_LIST_COLUMNS =
-  "id, creator_id, title, description, category, reward_amount, reward_currency, chain, status, task_type, external_link, start_date, end_date, reward_mode, raffle_winner_count, eligibility_rules, access_level, payment_method, escrow_contract_address, escrow_tx_hash, created_at, updated_at";
+  "id, creator_id, title, description, category, reward_amount, reward_currency, chain, status, task_type, external_link, start_date, end_date, reward_mode, raffle_winner_count, eligibility_rules, access_level, payment_method, payment_token, escrow_contract_address, escrow_tx_hash, created_at, updated_at";
 
 export const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

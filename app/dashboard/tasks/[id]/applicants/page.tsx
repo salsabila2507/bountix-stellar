@@ -22,7 +22,6 @@ import {
 } from "@/app/applications/actions";
 import { createClient } from "@/utils/supabase/server";
 import { TASK_LIST_COLUMNS, isUuid, type DbTask } from "@/lib/tasks";
-import { escrowContractForTask } from "@/lib/escrow";
 import {
   APPLICATION_COLUMNS,
   APPLICATION_STATUS_COLOR,
@@ -188,10 +187,6 @@ export default async function ApplicantsPage({ params }: RouteParams) {
     isRaffle &&
     winnerSubs.length === 0 &&
     eligibleSubs.length >= task.raffle_winner_count;
-  const escrowContractAddress = escrowContractForTask({
-    escrowContractAddress: task.escrow_contract_address,
-    escrowTxHash: task.escrow_tx_hash,
-  });
   const isMultiWinnerRaffle = isRaffle && task.raffle_winner_count > 1;
   const raffleReleaseWinners = winnerSubs.map((s) => {
     const winnerApp = apps.find((app) => app.id === s.application_id);
@@ -292,7 +287,6 @@ export default async function ApplicantsPage({ params }: RouteParams) {
                   <EscrowRaffleReleasePanel
                     taskId={task.id}
                     winners={raffleReleaseWinners}
-                    contractAddress={escrowContractAddress}
                     locale={locale}
                   />
                 ) : null}
@@ -602,7 +596,6 @@ export default async function ApplicantsPage({ params }: RouteParams) {
                                 taskId={task.id}
                                 rewardAmount={task.reward_amount}
                                 workerWalletAddress={applicant ? applicant.wallet_address : null}
-                                contractAddress={escrowContractAddress}
                                 locale={locale}
                               />
                             ) : null}

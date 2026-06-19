@@ -8,16 +8,14 @@ import {
   LoaderCircle,
   LockKeyhole,
   TriangleAlert,
-  Wallet,
 } from "lucide-react";
 import {
-  ESCROW_CONTRACT_ADDRESS,
   stellarTxUrl,
   usdcToUnits,
   uuidToBytes32,
   escrowContractDeployed,
 } from "@/lib/escrow";
-import { formatUsdc } from "@/lib/payments";
+import { formatUsdc, TOKEN_ADDRESSES, type PaymentToken } from "@/lib/payments";
 import { markTaskEscrowFundedAction } from "@/app/tasks/actions";
 import {
   DEFAULT_LOCALE,
@@ -40,12 +38,14 @@ export function EscrowFundPanel({
   rewardMode = "fixed",
   winnerCount = 1,
   locale = DEFAULT_LOCALE,
+  paymentToken = "USDC",
 }: {
   taskId: string;
   rewardAmount: number;
   rewardMode?: RewardMode;
   winnerCount?: number;
   locale?: Locale;
+  paymentToken?: PaymentToken;
 }) {
   const t = createTranslator(locale);
   const router = useRouter();
@@ -83,7 +83,7 @@ export function EscrowFundPanel({
       setPhase("funding");
       const hash = await invokeSorobanAdmin(
         rewardMode === "raffle" ? "fund_raffle_escrow" : "fund_escrow",
-        [taskKey, amount],
+        [taskKey, amount, TOKEN_ADDRESSES[paymentToken]],
       );
       setTxHash(hash);
 
@@ -144,7 +144,7 @@ export function EscrowFundPanel({
         {t("escrow.fund.title")}
       </h2>
       <p className="mt-2 text-sm font-semibold leading-6 text-[#3c214b]">
-        {t("escrow.fund.body", { amount: formatUsdc(displayAmount) })}
+        {t("escrow.fund.body", { amount: formatUsdc(displayAmount, paymentToken) })}
       </p>
 
       {phase === "error" && error ? (

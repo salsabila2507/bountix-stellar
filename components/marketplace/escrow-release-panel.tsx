@@ -10,7 +10,6 @@ import {
   Wallet,
 } from "lucide-react";
 import {
-  ESCROW_CONTRACT_ADDRESS,
   stellarTxUrl,
   usdcToUnits,
   uuidToBytes32,
@@ -41,14 +40,12 @@ export function EscrowReleasePanel({
   taskId,
   rewardAmount,
   workerWalletAddress,
-  contractAddress = ESCROW_CONTRACT_ADDRESS,
   locale = DEFAULT_LOCALE,
 }: {
   submissionId: string;
   taskId: string;
   rewardAmount: number | null;
   workerWalletAddress: string | null;
-  contractAddress?: string;
   locale?: Locale;
 }) {
   const t = createTranslator(locale);
@@ -225,12 +222,10 @@ type RaffleEscrowWinner = {
 export function EscrowRaffleReleasePanel({
   taskId,
   winners,
-  contractAddress = ESCROW_CONTRACT_ADDRESS,
   locale = DEFAULT_LOCALE,
 }: {
   taskId: string;
   winners: RaffleEscrowWinner[];
-  contractAddress?: string;
   locale?: Locale;
 }) {
   const t = createTranslator(locale);

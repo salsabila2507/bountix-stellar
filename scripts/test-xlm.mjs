@@ -113,14 +113,14 @@ async function main() {
 
   // 3. Initialize
   console.log(`\nInitialize...`);
-  await invoke(contractAddr.toString(), "initialize", [pubKey, pubKey, XLM_SAC]);
+  await invoke(contractAddr.toString(), "initialize", [pubKey, pubKey, XLM_SAC, XLM_SAC]);
   console.log(`  Initialized`);
 
   // 4. Fund escrow with 1 XLM (10_000_000 stroops)
   console.log(`\nFund escrow with 1 XLM...`);
   const taskKey = Buffer.from(crypto.randomBytes(32));
   const amount = BigInt(10_000_000); // 1 XLM = 10_000_000 stroops, same as 1 USDC with 7 decimals
-  const fundHash = await invoke(contractAddr.toString(), "fund_escrow", [pubKey, taskKey, amount]);
+  const fundHash = await invoke(contractAddr.toString(), "fund_escrow", [pubKey, taskKey, amount, XLM_SAC]);
   console.log(`  ✅ Funded! Tx: ${fundHash}`);
 
   // 5. Fund worker account (must exist before receiving XLM)

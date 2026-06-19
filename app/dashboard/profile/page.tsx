@@ -69,11 +69,12 @@ async function getSessionAndProfileFromToken(
 
     const supabase = await createClient();
 
-    let { data: profile, error: profileError } = await supabase
+    const { data: loadedProfile, error: profileError } = await supabase
       .from("profiles")
       .select("*")
       .eq("privy_did", privyDid)
       .maybeSingle();
+    let profile = loadedProfile;
 
     if (profileError || !profile) {
       const { data: newProfile } = await supabase

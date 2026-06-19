@@ -1,16 +1,19 @@
 /**
  * Bountix escrow (Soroban) constants + helpers for Stellar.
  *
- * On-chain USDC escrow on Stellar network via Soroban smart contract.
+ * On-chain stablecoin escrow on Stellar network via Soroban smart contract.
  * Manual payment remains the default and does not touch any of this.
  */
 
 import {
+  STELLAR_USDT_ADDRESS,
   STELLAR_USDC_ADDRESS,
-  USDC_DECIMALS,
+  STELLAR_TOKEN_DECIMALS,
 } from "@/lib/payments";
 
-/** Soroban escrow contract deployed on Stellar testnet (XLM). */
+/** Soroban escrow contract deployed on Stellar testnet. */
+export const ESCROW_USDT_ADDRESS = STELLAR_USDT_ADDRESS;
+
 export const ESCROW_CONTRACT_ADDRESS =
   "CCHJDSODTPYH3PZE23WURHT3SK6SY5G6W6D3MPI4YVUGZZTUXWGQ4OSI";
 
@@ -20,22 +23,22 @@ export const ESCROW_MAX_FEE_BPS = 1000;
 
 export const ESCROW_USDC_ADDRESS = STELLAR_USDC_ADDRESS;
 
-/** Minimum escrow reward = 1 USDC, in base units (7 decimals on Stellar). */
+/** Minimum escrow reward = 1 token, in base units (7 decimals on Stellar). */
 export const MIN_ESCROW_USDC = 1;
 export const MIN_ESCROW_UNITS = BigInt(10_000_000);
 
-/** Convert a human USDC amount (e.g. 50.00) to 6-decimal base units. */
+/** Convert a human Stellar token amount (e.g. 50.00) to base units. */
 export function usdcToUnits(amount: number): bigint {
   if (!Number.isFinite(amount) || amount < 0) return BigInt(0);
   const cents = Math.round(amount * 100);
-  return BigInt(cents) * BigInt(10) ** BigInt(USDC_DECIMALS - 2);
+  return BigInt(cents) * BigInt(10) ** BigInt(STELLAR_TOKEN_DECIMALS - 2);
 }
 
 /**
- * Convert 6-decimal base units back to a human USDC amount.
+ * Convert base units back to a human Stellar token amount.
  */
 export function fromBaseUnits(units: bigint): number {
-  return Number(units) / 10 ** USDC_DECIMALS;
+  return Number(units) / 10 ** STELLAR_TOKEN_DECIMALS;
 }
 
 /**

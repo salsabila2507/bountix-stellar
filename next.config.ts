@@ -24,11 +24,17 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  webpack(config: any) {
+  webpack(config) {
     config.resolve ??= {};
-    config.resolve.alias ??= {};
-    config.resolve.alias["@stripe/crypto"] = false;
-    config.resolve.alias["@farcaster/mini-app-solana"] = false;
+    const alias =
+      config.resolve.alias && !Array.isArray(config.resolve.alias)
+        ? config.resolve.alias
+        : {};
+    config.resolve.alias = {
+      ...alias,
+      "@stripe/crypto": false,
+      "@farcaster/mini-app-solana": false,
+    };
     return config;
   },
   images: {

@@ -19,6 +19,7 @@ import {
   type RewardMode,
 } from "@/lib/tasks";
 import { ESCROW_CONTRACT_ADDRESS, MIN_ESCROW_USDC } from "@/lib/escrow";
+import { isPaymentToken, type PaymentToken } from "@/lib/payments";
 import type { TaskFormState } from "@/lib/task-form-state";
 
 type ParsedTaskInput = {
@@ -36,6 +37,7 @@ type ParsedTaskInput = {
   eligibility_rules: string | null;
   access_level: TaskAccessLevel;
   payment_method: PaymentMethod;
+  payment_token: PaymentToken;
 };
 
 function isHttpsUrl(value: string): boolean {
@@ -65,6 +67,7 @@ function parseTaskInput(formData: FormData): {
   const eligibility_rules = String(formData.get("eligibility_rules") ?? "").trim();
   let access_level = String(formData.get("access_level") ?? "open");
   const payment_method = String(formData.get("payment_method") ?? "manual");
+  const paymentTokenRaw = String(formData.get("payment_token") ?? "USDC");
 
   const fieldErrors: TaskFormState["fieldErrors"] = {};
 
@@ -98,10 +101,12 @@ function parseTaskInput(formData: FormData): {
   }
   if (!(PAYMENT_METHODS as readonly string[]).includes(payment_method)) {
     fieldErrors.payment_method = "Invalid payment method.";
+  } else if (payment_method === "escrow_stellar" && !isPaymentToken(paymentTokenRaw)) {
+    fieldErrors.payment_token = "Invalid token. Choose USDC or USDT.";
   } else if (payment_method === "escrow_stellar") {
-    // Escrow funds the on-chain contract, which enforces a 1 USDC minimum.
+    // Escrow funds the on-chain contract, which enforces a 1 token minimum.
     if (reward_amount === null || reward_amount < MIN_ESCROW_USDC) {
-      fieldErrors.payment_method = `Escrow needs a reward of at least ${MIN_ESCROW_USDC} USDC.`;
+      fieldErrors.payment_method = `Escrow needs a reward of at least ${MIN_ESCROW_USDC} token.`;
     }
   }
   if (!(REWARD_MODES as readonly string[]).includes(reward_mode)) {
@@ -189,6 +194,7 @@ function parseTaskInput(formData: FormData): {
         reward_mode === "raffle" ? eligibility_rules : null,
       access_level: access_level as TaskAccessLevel,
       payment_method: payment_method as PaymentMethod,
+      payment_token: isPaymentToken(paymentTokenRaw) ? paymentTokenRaw : "USDC",
     },
     fieldErrors,
   };
@@ -276,6 +282,7 @@ export async function createTaskAction(
       eligibility_rules: data.eligibility_rules,
       access_level: data.access_level,
       payment_method: data.payment_method,
+      payment_token: data.payment_token,
     })
     .select("id")
     .maybeSingle();
@@ -339,7 +346,7 @@ export async function updateTaskAction(
   // Load full task state for ownership + funding checks.
   const { data: existing } = await supabase
     .from("tasks")
-    .select("creator_id, payment_method, escrow_tx_hash, status")
+    .select("creator_id, payment_method, payment_token, escrow_tx_hash, status")
     .eq("id", taskId)
     .maybeSingle();
 
@@ -358,6 +365,10 @@ export async function updateTaskAction(
   const payment_method: PaymentMethod = isFunded
     ? "escrow_stellar"
     : data.payment_method;
+  const payment_token: PaymentToken =
+    isFunded && isPaymentToken(String(existing.payment_token ?? ""))
+      ? existing.payment_token
+      : data.payment_token;
 
   // Lock status for escrow-funded tasks — on-chain state depends on it.
   const status = isFunded ? existing.status : data.status;
@@ -381,6 +392,7 @@ export async function updateTaskAction(
       eligibility_rules: data.eligibility_rules,
       access_level: data.access_level,
       payment_method,
+      payment_token,
     })
     .eq("id", taskId);
 

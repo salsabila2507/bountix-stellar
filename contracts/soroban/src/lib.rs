@@ -37,6 +37,7 @@ pub struct Escrow {
     pub assigned_total: i128,
     pub kind: EscrowKind,
     pub state: EscrowState,
+    pub token: Address,
 }
 
 #[contracttype]
@@ -51,6 +52,7 @@ pub enum DataKey {
     Admin,
     Treasury,
     Usdc,
+    Usdt,
     FeeBps,
     Escrow(BytesN<32>),
     RafflePayouts(BytesN<32>),
@@ -61,8 +63,8 @@ pub struct BountixEscrow;
 
 #[contractimpl]
 impl BountixEscrow {
-    /// Initialize the contract with admin, treasury, and USDC address.
-    pub fn initialize(env: Env, admin: Address, treasury: Address, usdc: Address) {
+    /// Initialize the contract with admin, treasury, USDC address, and USDT address.
+    pub fn initialize(env: Env, admin: Address, treasury: Address, usdc: Address, usdt: Address) {
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -70,6 +72,7 @@ impl BountixEscrow {
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::Treasury, &treasury);
         env.storage().instance().set(&DataKey::Usdc, &usdc);
+        env.storage().instance().set(&DataKey::Usdt, &usdt);
         env.storage()
             .instance()
             .set(&DataKey::FeeBps, &DEFAULT_FEE_BPS);
@@ -77,21 +80,35 @@ impl BountixEscrow {
 
     /// Set the admin (resolver) address.
     pub fn set_admin(env: Env, new_admin: Address) {
-        let admin: Address = env.storage().instance().get(&DataKey::Admin).expect("not initialized");
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("not initialized");
         admin.require_auth();
         env.storage().instance().set(&DataKey::Admin, &new_admin);
     }
 
     /// Set the treasury address.
     pub fn set_treasury(env: Env, new_treasury: Address) {
-        let admin: Address = env.storage().instance().get(&DataKey::Admin).expect("not initialized");
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("not initialized");
         admin.require_auth();
-        env.storage().instance().set(&DataKey::Treasury, &new_treasury);
+        env.storage()
+            .instance()
+            .set(&DataKey::Treasury, &new_treasury);
     }
 
     /// Set the platform fee in basis points. Max 10%.
     pub fn set_fee_bps(env: Env, new_fee_bps: i128) {
-        let admin: Address = env.storage().instance().get(&DataKey::Admin).expect("not initialized");
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("not initialized");
         admin.require_auth();
         if new_fee_bps > MAX_FEE_BPS {
             panic!("fee exceeds max");
@@ -99,12 +116,41 @@ impl BountixEscrow {
         env.storage().instance().set(&DataKey::FeeBps, &new_fee_bps);
     }
 
+    /// Set the USDC token address. Admin only.
+    pub fn set_usdc(env: Env, new_usdc: Address) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("not initialized");
+        admin.require_auth();
+        env.storage().instance().set(&DataKey::Usdc, &new_usdc);
+    }
+
+    /// Set the USDT token address. Admin only.
+    pub fn set_usdt(env: Env, new_usdt: Address) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("not initialized");
+        admin.require_auth();
+        env.storage().instance().set(&DataKey::Usdt, &new_usdt);
+    }
+
     // -----------------------------------------------------------------------
     // Fund
     // -----------------------------------------------------------------------
 
-    /// Fund a single-worker escrow. Payer must approve USDC first.
-    pub fn fund_escrow(env: Env, payer: Address, task_id: BytesN<32>, amount: i128) {
+    /// Fund a single-worker escrow. Payer must approve token first.
+    /// Token must be either USDC or USDT address.
+    pub fn fund_escrow(
+        env: Env,
+        payer: Address,
+        task_id: BytesN<32>,
+        amount: i128,
+        token: Address,
+    ) {
         payer.require_auth();
         if amount < MIN_AMOUNT {
             panic!("amount below minimum");
@@ -112,6 +158,20 @@ impl BountixEscrow {
         let key = DataKey::Escrow(task_id.clone());
         if env.storage().instance().has(&key) {
             panic!("escrow already exists");
+        }
+
+        let usdc: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Usdc)
+            .expect("not initialized");
+        let usdt: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Usdt)
+            .expect("not initialized");
+        if token != usdc && token != usdt {
+            panic!("unsupported token");
         }
 
         let escrow = Escrow {
@@ -121,16 +181,23 @@ impl BountixEscrow {
             assigned_total: 0,
             kind: EscrowKind::Single,
             state: EscrowState::Funded,
+            token: token.clone(),
         };
         env.storage().instance().set(&key, &escrow);
 
-        let usdc: Address = env.storage().instance().get(&DataKey::Usdc).expect("not initialized");
-        let token = TokenClient::new(&env, &usdc);
-        token.transfer(&payer, &env.current_contract_address(), &amount);
+        let token_client = TokenClient::new(&env, &token);
+        token_client.transfer(&payer, &env.current_contract_address(), &amount);
     }
 
     /// Fund a raffle escrow (multiple winners).
-    pub fn fund_raffle_escrow(env: Env, payer: Address, task_id: BytesN<32>, amount: i128) {
+    /// Token must be either USDC or USDT address.
+    pub fn fund_raffle_escrow(
+        env: Env,
+        payer: Address,
+        task_id: BytesN<32>,
+        amount: i128,
+        token: Address,
+    ) {
         payer.require_auth();
         if amount < MIN_AMOUNT {
             panic!("amount below minimum");
@@ -140,6 +207,20 @@ impl BountixEscrow {
             panic!("escrow already exists");
         }
 
+        let usdc: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Usdc)
+            .expect("not initialized");
+        let usdt: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Usdt)
+            .expect("not initialized");
+        if token != usdc && token != usdt {
+            panic!("unsupported token");
+        }
+
         let escrow = Escrow {
             payer: payer.clone(),
             worker: env.current_contract_address(),
@@ -147,12 +228,12 @@ impl BountixEscrow {
             assigned_total: 0,
             kind: EscrowKind::Raffle,
             state: EscrowState::Funded,
+            token: token.clone(),
         };
         env.storage().instance().set(&key, &escrow);
 
-        let usdc: Address = env.storage().instance().get(&DataKey::Usdc).expect("not initialized");
-        let token = TokenClient::new(&env, &usdc);
-        token.transfer(&payer, &env.current_contract_address(), &amount);
+        let token_client = TokenClient::new(&env, &token);
+        token_client.transfer(&payer, &env.current_contract_address(), &amount);
     }
 
     // -----------------------------------------------------------------------
@@ -161,11 +242,19 @@ impl BountixEscrow {
 
     /// Assign a worker for a single escrow. Admin only.
     pub fn assign_worker(env: Env, task_id: BytesN<32>, worker: Address) {
-        let admin: Address = env.storage().instance().get(&DataKey::Admin).expect("not initialized");
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("not initialized");
         admin.require_auth();
 
         let key = DataKey::Escrow(task_id.clone());
-        let mut escrow: Escrow = env.storage().instance().get(&key).expect("escrow not found");
+        let mut escrow: Escrow = env
+            .storage()
+            .instance()
+            .get(&key)
+            .expect("escrow not found");
         if escrow.state != EscrowState::Funded {
             panic!("escrow not funded");
         }
@@ -173,6 +262,7 @@ impl BountixEscrow {
             panic!("not single escrow");
         }
         escrow.worker = worker;
+        escrow.assigned_total = escrow.amount;
         env.storage().instance().set(&key, &escrow);
     }
 
@@ -183,11 +273,19 @@ impl BountixEscrow {
         winners: Vec<Address>,
         gross_amounts: Vec<i128>,
     ) {
-        let admin: Address = env.storage().instance().get(&DataKey::Admin).expect("not initialized");
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("not initialized");
         admin.require_auth();
 
         let key = DataKey::Escrow(task_id.clone());
-        let mut escrow: Escrow = env.storage().instance().get(&key).expect("escrow not found");
+        let mut escrow: Escrow = env
+            .storage()
+            .instance()
+            .get(&key)
+            .expect("escrow not found");
         if escrow.state != EscrowState::Funded {
             panic!("escrow not funded");
         }
@@ -220,7 +318,9 @@ impl BountixEscrow {
 
         escrow.assigned_total = total;
         env.storage().instance().set(&key, &escrow);
-        env.storage().instance().set(&DataKey::RafflePayouts(task_id.clone()), &payouts);
+        env.storage()
+            .instance()
+            .set(&DataKey::RafflePayouts(task_id.clone()), &payouts);
     }
 
     // -----------------------------------------------------------------------
@@ -229,28 +329,46 @@ impl BountixEscrow {
 
     /// Release a single escrow to the assigned worker. Admin only.
     pub fn release_escrow(env: Env, task_id: BytesN<32>) {
-        let admin: Address = env.storage().instance().get(&DataKey::Admin).expect("not initialized");
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("not initialized");
         admin.require_auth();
 
         let key = DataKey::Escrow(task_id.clone());
-        let mut escrow: Escrow = env.storage().instance().get(&key).expect("escrow not found");
+        let mut escrow: Escrow = env
+            .storage()
+            .instance()
+            .get(&key)
+            .expect("escrow not found");
         if escrow.state != EscrowState::Funded {
             panic!("escrow not funded");
         }
         if escrow.kind != EscrowKind::Single {
             panic!("not single escrow");
         }
+        if escrow.worker == env.current_contract_address() {
+            panic!("worker not assigned");
+        }
 
         escrow.state = EscrowState::Released;
         env.storage().instance().set(&key, &escrow);
 
-        let fee_bps: i128 = env.storage().instance().get(&DataKey::FeeBps).unwrap_or(DEFAULT_FEE_BPS);
+        let fee_bps: i128 = env
+            .storage()
+            .instance()
+            .get(&DataKey::FeeBps)
+            .unwrap_or(DEFAULT_FEE_BPS);
         let fee = (escrow.amount * fee_bps) / BPS_DENOMINATOR;
         let net = escrow.amount - fee;
 
-        let usdc: Address = env.storage().instance().get(&DataKey::Usdc).expect("not initialized");
-        let token = TokenClient::new(&env, &usdc);
-        let treasury: Address = env.storage().instance().get(&DataKey::Treasury).expect("not initialized");
+        let token = TokenClient::new(&env, &escrow.token);
+        let treasury: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Treasury)
+            .expect("not initialized");
 
         if fee > 0 {
             token.transfer(&env.current_contract_address(), &treasury, &fee);
@@ -260,11 +378,19 @@ impl BountixEscrow {
 
     /// Release a raffle escrow to all winners. Admin only.
     pub fn release_raffle_escrow(env: Env, task_id: BytesN<32>) {
-        let admin: Address = env.storage().instance().get(&DataKey::Admin).expect("not initialized");
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("not initialized");
         admin.require_auth();
 
         let key = DataKey::Escrow(task_id.clone());
-        let mut escrow: Escrow = env.storage().instance().get(&key).expect("escrow not found");
+        let mut escrow: Escrow = env
+            .storage()
+            .instance()
+            .get(&key)
+            .expect("escrow not found");
         if escrow.state != EscrowState::Funded {
             panic!("escrow not funded");
         }
@@ -272,17 +398,26 @@ impl BountixEscrow {
             panic!("not raffle escrow");
         }
 
-        let payouts: Vec<RafflePayout> = env.storage().instance()
+        let payouts: Vec<RafflePayout> = env
+            .storage()
+            .instance()
             .get(&DataKey::RafflePayouts(task_id.clone()))
             .expect("raffle winners not assigned");
 
         escrow.state = EscrowState::Released;
         env.storage().instance().set(&key, &escrow);
 
-        let fee_bps: i128 = env.storage().instance().get(&DataKey::FeeBps).unwrap_or(DEFAULT_FEE_BPS);
-        let usdc: Address = env.storage().instance().get(&DataKey::Usdc).expect("not initialized");
-        let token = TokenClient::new(&env, &usdc);
-        let treasury: Address = env.storage().instance().get(&DataKey::Treasury).expect("not initialized");
+        let fee_bps: i128 = env
+            .storage()
+            .instance()
+            .get(&DataKey::FeeBps)
+            .unwrap_or(DEFAULT_FEE_BPS);
+        let token = TokenClient::new(&env, &escrow.token);
+        let treasury: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Treasury)
+            .expect("not initialized");
 
         let mut total_fee: i128 = 0;
         for payout in payouts.iter() {
@@ -302,11 +437,19 @@ impl BountixEscrow {
 
     /// Refund the full escrow amount to the payer. Admin only.
     pub fn refund_escrow(env: Env, task_id: BytesN<32>) {
-        let admin: Address = env.storage().instance().get(&DataKey::Admin).expect("not initialized");
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("not initialized");
         admin.require_auth();
 
         let key = DataKey::Escrow(task_id.clone());
-        let mut escrow: Escrow = env.storage().instance().get(&key).expect("escrow not found");
+        let mut escrow: Escrow = env
+            .storage()
+            .instance()
+            .get(&key)
+            .expect("escrow not found");
         if escrow.state != EscrowState::Funded {
             panic!("escrow not funded");
         }
@@ -314,9 +457,12 @@ impl BountixEscrow {
         escrow.state = EscrowState::Refunded;
         env.storage().instance().set(&key, &escrow);
 
-        let usdc: Address = env.storage().instance().get(&DataKey::Usdc).expect("not initialized");
-        let token = TokenClient::new(&env, &usdc);
-        token.transfer(&env.current_contract_address(), &escrow.payer, &escrow.amount);
+        let token = TokenClient::new(&env, &escrow.token);
+        token.transfer(
+            &env.current_contract_address(),
+            &escrow.payer,
+            &escrow.amount,
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -324,26 +470,51 @@ impl BountixEscrow {
     // -----------------------------------------------------------------------
 
     pub fn get_escrow(env: Env, task_id: BytesN<32>) -> Escrow {
-        env.storage().instance().get(&DataKey::Escrow(task_id)).expect("escrow not found")
+        env.storage()
+            .instance()
+            .get(&DataKey::Escrow(task_id))
+            .expect("escrow not found")
     }
 
     pub fn get_raffle_payouts(env: Env, task_id: BytesN<32>) -> Vec<RafflePayout> {
-        env.storage().instance().get(&DataKey::RafflePayouts(task_id)).unwrap_or(Vec::new(&env))
+        env.storage()
+            .instance()
+            .get(&DataKey::RafflePayouts(task_id))
+            .unwrap_or(Vec::new(&env))
     }
 
     pub fn get_fee_bps(env: Env) -> i128 {
-        env.storage().instance().get(&DataKey::FeeBps).unwrap_or(DEFAULT_FEE_BPS)
+        env.storage()
+            .instance()
+            .get(&DataKey::FeeBps)
+            .unwrap_or(DEFAULT_FEE_BPS)
     }
 
     pub fn get_admin(env: Env) -> Address {
-        env.storage().instance().get(&DataKey::Admin).expect("not initialized")
+        env.storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("not initialized")
     }
 
     pub fn get_treasury(env: Env) -> Address {
-        env.storage().instance().get(&DataKey::Treasury).expect("not initialized")
+        env.storage()
+            .instance()
+            .get(&DataKey::Treasury)
+            .expect("not initialized")
     }
 
     pub fn get_usdc(env: Env) -> Address {
-        env.storage().instance().get(&DataKey::Usdc).expect("not initialized")
+        env.storage()
+            .instance()
+            .get(&DataKey::Usdc)
+            .expect("not initialized")
+    }
+
+    pub fn get_usdt(env: Env) -> Address {
+        env.storage()
+            .instance()
+            .get(&DataKey::Usdt)
+            .expect("not initialized")
     }
 }
