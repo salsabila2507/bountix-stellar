@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     const response = NextResponse.redirect(new URL(redirectUrl, request.url));
     response.cookies.set("session", sessionCookie, {
       httpOnly: true,
-      secure: true,
+      secure: request.nextUrl.protocol === "https:",
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 60 * 24 * 30,

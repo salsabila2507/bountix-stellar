@@ -11,7 +11,7 @@ import {
 import { SiteHeader } from "@/components/site-header";
 import { createTranslator } from "@/lib/i18n";
 import { getRequestLocale } from "@/lib/i18n/server";
-import { createClient } from "@/utils/supabase/server";
+import { getServerUser } from "@/lib/server-user";
 
 export const dynamic = "force-dynamic";
 
@@ -21,17 +21,15 @@ export const metadata = {
 };
 
 async function loadActor() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  const serverUser = await getServerUser();
+  if (!serverUser) return null;
+  const { supabase, userId } = serverUser;
   const { data: profile } = await supabase
     .from("profiles")
     .select("id, username, role")
-    .eq("id", user.id)
+    .eq("id", userId)
     .maybeSingle();
-  return { user, profile };
+  return { userId, profile };
 }
 
 export default async function DashboardPage() {

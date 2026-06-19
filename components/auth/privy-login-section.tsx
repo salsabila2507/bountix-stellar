@@ -18,7 +18,7 @@ export function PrivyLoginSection({
     (async () => {
       const token = await getAccessToken();
       if (!token) return;
-      let url = `/dashboard/profile?token=${encodeURIComponent(token)}`;
+      let url = `/auth/callback?token=${encodeURIComponent(token)}`;
       if (referralCode) url += `&ref=${encodeURIComponent(referralCode)}`;
       window.location.href = url;
     })();
