@@ -19,7 +19,8 @@ function redirectToLogin(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token");
-  if (!token) {
+  const idToken = request.nextUrl.searchParams.get("id_token");
+  if (!token && !idToken) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
@@ -29,8 +30,9 @@ export async function GET(request: NextRequest) {
 
   try {
     const privy = new PrivyClient(PRIVY_APP_ID, PRIVY_APP_SECRET);
-    const claims = await privy.verifyAuthToken(token);
-    const user = await privy.getUser(claims.userId);
+    const user = idToken
+      ? await privy.getUser({ idToken })
+      : await privy.getUser((await privy.verifyAuthToken(token ?? "")).userId);
     const privyDid = user.id;
 
     const supabase = await createClient();

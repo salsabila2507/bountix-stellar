@@ -1,6 +1,6 @@
 "use client";
 
-import { usePrivy } from "@privy-io/react-auth";
+import { getIdentityToken, usePrivy } from "@privy-io/react-auth";
 import { useEffect, useState } from "react";
 import { LoaderCircle, LogIn, TriangleAlert, UserPlus } from "lucide-react";
 
@@ -32,9 +32,13 @@ export function PrivyLoginSection({
     if (authError && !hasHandledAuthError) return;
     if (!authenticated) return;
     (async () => {
+      const idToken = await getIdentityToken();
       const token = await getAccessToken();
-      if (!token) return;
-      let url = `/auth/callback?token=${encodeURIComponent(token)}`;
+      if (!idToken && !token) return;
+      const searchParams = new URLSearchParams();
+      if (idToken) searchParams.set("id_token", idToken);
+      if (token) searchParams.set("token", token);
+      let url = `/auth/callback?${searchParams.toString()}`;
       if (referralCode) url += `&ref=${encodeURIComponent(referralCode)}`;
       window.location.href = url;
     })();
