@@ -3,10 +3,11 @@ import Link from "next/link";
 import { Bell, LogOut, Menu, User } from "lucide-react";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { ButtonLink } from "@/components/ui/button";
-import { logoutAction } from "@/app/auth/actions";
 import { createTranslator, type TranslationKey } from "@/lib/i18n";
 import { getRequestLocale } from "@/lib/i18n/server";
 import { getUnreadNotificationCount } from "@/lib/notifications";
+import { logoutAction } from "@/app/auth/actions";
+import { getSessionUser } from "@/lib/auth/session";
 
 type NavLink = {
   href: string;
@@ -34,30 +35,22 @@ const authedMenuLinks: NavLink[] = [
   { href: "/dashboard/profile", labelKey: "dashboard.nav.profile" },
 ];
 
-/**
- * Read the current Supabase user without throwing if env vars are missing
- * (public pages must keep rendering even before auth is fully wired).
- */
 async function getCurrentUser() {
   try {
-    const { createClient } = await import("@/utils/supabase/server");
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    return user;
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) return null;
+    return { id: sessionUser.id };
   } catch {
     return null;
   }
 }
 
 function getDisplayHandle(
-  user: { email?: string | null } | null,
+  user: { id: string } | null,
   fallback: string,
 ) {
-  if (!user?.email) return fallback;
-  const local = user.email.split("@")[0];
-  return local.length > 14 ? `${local.slice(0, 13)}…` : local;
+  if (!user) return fallback;
+  return user.id.length > 16 ? `${user.id.slice(0, 15)}…` : user.id;
 }
 
 export async function SiteHeader() {

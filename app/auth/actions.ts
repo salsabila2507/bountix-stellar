@@ -1,5 +1,6 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getPublicSiteUrl, normalizeReferralCode } from "@/lib/referrals";
 import { createClient } from "@/utils/supabase/server";
@@ -229,10 +230,11 @@ export async function resetPasswordAction(
 
 export async function logoutAction() {
   try {
-    const supabase = await createClient();
-    await supabase.auth.signOut();
+    const cookieStore = await cookies();
+    cookieStore.set("session", "", { maxAge: 0, path: "/" });
+    cookieStore.set("privy-token", "", { maxAge: 0, path: "/" });
   } catch {
-    // If Supabase env is missing or signOut fails, fall through to redirect.
+    // Cookie clear best-effort
   }
   redirect("/");
 }
