@@ -261,12 +261,12 @@ export default async function DashboardProfilePage({
               {t("dashboard.profile.chip")}
             </p>
             <h1 className="mt-3 text-3xl font-black uppercase leading-none sm:text-5xl">
-              Hi, @{profile.username}
+              Hi, @{profile.username ?? "newuser"}
             </h1>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
-              href={`/profile/${profile.username}`}
+              href={`/profile/${profile.username ?? "newuser"}`}
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border-2 border-[#140625] bg-white px-3 py-2 text-xs font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625] transition hover:bg-[#38e7ff]"
             >
               {t("dashboard.profile.viewPublic")}
@@ -298,16 +298,16 @@ export default async function DashboardProfilePage({
                   />
                 ) : (
                   <span className="flex h-full w-full items-center justify-center text-2xl font-black text-[#140625]">
-                    {profile.username.slice(0, 2).toUpperCase()}
+                    {(profile.username ?? "??").slice(0, 2).toUpperCase()}
                   </span>
                 )}
               </span>
               <div>
                 <p className="text-sm font-bold text-[#7c3cff]">
-                  @{profile.username}
+                  @{profile.username ?? "newuser"}
                 </p>
                 <h2 className="mt-1 text-2xl font-black tracking-tight text-[#140625] sm:text-3xl">
-                  {profile.display_name ?? `@${profile.username}`}
+                  {profile.display_name ?? `@${profile.username ?? "newuser"}`}
                 </h2>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center gap-1.5 rounded-lg border-2 border-[#140625] bg-[#38e7ff] px-3 py-1 text-xs font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625]">
