@@ -29,6 +29,7 @@ import {
   type ProfileRole,
   type SocialLinks,
 } from "@/lib/profile";
+import { getDefaultPrivyUsername } from "@/lib/auth/profile";
 import { PrivyClient } from "@privy-io/server-auth";
 
 type ReferredUser = {
@@ -77,7 +78,10 @@ async function getSessionAndProfileFromToken(
     if (profileError || !profile) {
       const { data: newProfile } = await supabase
         .from("profiles")
-        .insert({ privy_did: privyDid })
+        .insert({
+          privy_did: privyDid,
+          username: getDefaultPrivyUsername(privyDid),
+        })
         .select("*")
         .single();
       profile = newProfile;

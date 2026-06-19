@@ -2,6 +2,12 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { PrivyLoginSection } from "@/components/auth/privy-login-section";
 
+type LoginPageProps = {
+  searchParams: Promise<{
+    auth_error?: string | string[];
+  }>;
+};
+
 export const dynamic = "force-dynamic";
 
 export const metadata = {
@@ -9,7 +15,12 @@ export const metadata = {
   description: "Log in to your Bountix account.",
 };
 
-export default function LoginPage() {
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const params = await searchParams;
+  const authError = Array.isArray(params.auth_error)
+    ? params.auth_error[0]
+    : params.auth_error;
+
   return (
     <main className="comic-page min-h-screen overflow-hidden text-[#140625]">
       <div className="container-page py-8 sm:py-10">
@@ -22,7 +33,7 @@ export default function LoginPage() {
         </Link>
 
         <section className="mx-auto mt-10 max-w-md">
-          <PrivyLoginSection />
+          <PrivyLoginSection authError={Boolean(authError)} />
         </section>
       </div>
     </main>

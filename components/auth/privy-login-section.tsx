@@ -1,19 +1,35 @@
 "use client";
 
 import { usePrivy } from "@privy-io/react-auth";
-import { useEffect } from "react";
-import { LoaderCircle, LogIn, UserPlus } from "lucide-react";
+import { useEffect, useState } from "react";
+import { LoaderCircle, LogIn, TriangleAlert, UserPlus } from "lucide-react";
 
 export function PrivyLoginSection({
   mode = "login",
   referralCode,
+  authError = false,
 }: {
   mode?: "login" | "signup";
   referralCode?: string;
+  authError?: boolean;
 }) {
-  const { login, ready, authenticated, getAccessToken } = usePrivy();
+  const { login, logout, ready, authenticated, getAccessToken } = usePrivy();
+  const [hasHandledAuthError, setHasHandledAuthError] = useState(!authError);
 
   useEffect(() => {
+    if (!authError || hasHandledAuthError || !ready) return;
+    if (!authenticated) {
+      setHasHandledAuthError(true);
+      return;
+    }
+
+    void logout().finally(() => {
+      setHasHandledAuthError(true);
+    });
+  }, [authError, authenticated, hasHandledAuthError, logout, ready]);
+
+  useEffect(() => {
+    if (authError && !hasHandledAuthError) return;
     if (!authenticated) return;
     (async () => {
       const token = await getAccessToken();
@@ -22,7 +38,7 @@ export function PrivyLoginSection({
       if (referralCode) url += `&ref=${encodeURIComponent(referralCode)}`;
       window.location.href = url;
     })();
-  }, [authenticated, referralCode, getAccessToken]);
+  }, [authError, authenticated, referralCode, getAccessToken, hasHandledAuthError]);
 
   if (mode === "login") {
     return (
@@ -34,6 +50,16 @@ export function PrivyLoginSection({
         <p className="mt-3 text-sm font-medium leading-6 text-[#5a3b66]">
           Sign in with email or Google to continue.
         </p>
+
+        {authError ? (
+          <div className="mt-6 flex gap-3 rounded-lg border-2 border-[#140625] bg-[#ffe1ed] p-3 text-sm font-bold text-[#8a1742]">
+            <TriangleAlert
+              aria-hidden="true"
+              className="mt-0.5 h-4 w-4 shrink-0"
+            />
+            <p>Could not finish login. Please try again.</p>
+          </div>
+        ) : null}
 
         <button
           type="button"

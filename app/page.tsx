@@ -19,6 +19,7 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { TaskCarousel } from "@/components/landing/task-carousel";
 import { createTranslator, type TranslationKey } from "@/lib/i18n";
 import { getRequestLocale } from "@/lib/i18n/server";
+import { getSessionUser } from "@/lib/auth/session";
 
 const assetBase = "/bountix-comic/bountix_assets_ready";
 const telegramGroupUrl = "https://t.me/+V78fuYlQNvcxYTNl";
@@ -199,17 +200,9 @@ const stats = [
   ["STELLAR", "landing.stats.stellar"],
 ] satisfies [string, TranslationKey][];
 
-/**
- * Public landing must render even if Supabase env is not configured locally.
- */
 async function getCurrentUser() {
   try {
-    const { createClient } = await import("@/utils/supabase/server");
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    return user;
+    return await getSessionUser();
   } catch {
     return null;
   }

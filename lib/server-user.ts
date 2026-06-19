@@ -1,4 +1,5 @@
 import { getPrivyUser } from "@/lib/auth/privy-server";
+import { getDefaultPrivyUsername } from "@/lib/auth/profile";
 import { createClient } from "@/utils/supabase/server";
 
 export async function getServerUser() {
@@ -19,6 +20,7 @@ export async function getServerUser() {
       .from("profiles")
       .insert({
         privy_did: privyUser.id,
+        username: getDefaultPrivyUsername(privyUser.id),
       })
       .select("id")
       .single();

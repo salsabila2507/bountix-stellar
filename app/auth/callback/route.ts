@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrivyClient } from "@privy-io/server-auth";
 import { createSessionCookie } from "@/lib/auth/session";
+import { getDefaultPrivyUsername } from "@/lib/auth/profile";
 import { createClient } from "@/utils/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? "";
 const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET ?? "";
+
+function redirectToLogin(request: NextRequest) {
+  const response = NextResponse.redirect(
+    new URL("/login?auth_error=callback", request.url),
+  );
+  response.cookies.set("session", "", { maxAge: 0, path: "/" });
+  return response;
+}
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token");
@@ -15,7 +24,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (!PRIVY_APP_ID || !PRIVY_APP_SECRET) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return redirectToLogin(request);
   }
 
   try {
@@ -35,9 +44,13 @@ export async function GET(request: NextRequest) {
     if (!existing) {
       const { error: insertError } = await supabase
         .from("profiles")
-        .insert({ privy_did: privyDid });
+        .insert({
+          privy_did: privyDid,
+          username: getDefaultPrivyUsername(privyDid),
+        });
       if (insertError) {
-        return NextResponse.redirect(new URL("/login", request.url));
+        console.error("Privy auth callback could not create profile", insertError);
+        return redirectToLogin(request);
       }
     }
 
@@ -56,7 +69,8 @@ export async function GET(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 30,
     });
     return response;
-  } catch {
-    return NextResponse.redirect(new URL("/login", request.url));
+  } catch (error) {
+    console.error("Privy auth callback failed", error);
+    return redirectToLogin(request);
   }
 }
