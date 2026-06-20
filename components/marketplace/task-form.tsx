@@ -64,12 +64,8 @@ export function TaskForm({
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
-      try {
-        const result = await boundAction(state, formData);
-        if (result) setState(result);
-      } catch {
-        // redirect or navigation — component may unmount
-      }
+      const result = await boundAction(state, formData);
+      if (result) setState(result);
     });
   }
 

@@ -6,7 +6,7 @@ import { TaskForm } from "@/components/marketplace/task-form";
 import { deleteTaskAction } from "@/app/tasks/actions";
 import { createTranslator } from "@/lib/i18n";
 import { getRequestLocale } from "@/lib/i18n/server";
-import { createClient } from "@/utils/supabase/server";
+import { getServerUser } from "@/lib/server-user";
 import { TASK_LIST_COLUMNS, isUuid, type DbTask } from "@/lib/tasks";
 
 export const dynamic = "force-dynamic";
@@ -21,16 +21,14 @@ export const metadata = {
 async function loadEditableTask(taskId: string) {
   if (!isUuid(taskId)) return null;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  const serverUser = await getServerUser();
+  if (!serverUser) return null;
+  const { supabase, userId } = serverUser;
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("id, role")
-    .eq("id", user.id)
+    .eq("id", userId)
     .maybeSingle();
   if (!profile) return null;
 
@@ -43,7 +41,7 @@ async function loadEditableTask(taskId: string) {
   if (!task) return null;
 
   const isAdmin = profile.role === "admin";
-  const isOwner = task.creator_id === user.id;
+  const isOwner = task.creator_id === userId;
   if (!isAdmin && !isOwner) return null;
 
   return { task: task as DbTask, isAdmin };
@@ -53,11 +51,8 @@ export default async function EditTaskPage({ params }: RouteParams) {
   const locale = await getRequestLocale();
   const t = createTranslator(locale);
   const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  const serverUser = await getServerUser();
+  if (!serverUser) {
     redirect("/login");
   }
 

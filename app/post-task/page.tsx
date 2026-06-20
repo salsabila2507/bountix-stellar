@@ -5,7 +5,7 @@ import { SiteHeader } from "@/components/site-header";
 import { TaskForm } from "@/components/marketplace/task-form";
 import { createTranslator } from "@/lib/i18n";
 import { getRequestLocale } from "@/lib/i18n/server";
-import { createClient } from "@/utils/supabase/server";
+import { getServerUser } from "@/lib/server-user";
 
 export const dynamic = "force-dynamic";
 
@@ -17,20 +17,18 @@ export const metadata = {
 
 async function loadActor() {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { user: null, profile: null as null };
+    const serverUser = await getServerUser();
+    if (!serverUser) return { userId: null, profile: null as null };
+    const { supabase, userId } = serverUser;
 
     const { data: profile } = await supabase
       .from("profiles")
       .select("id, role, username")
-      .eq("id", user.id)
+      .eq("id", userId)
       .maybeSingle();
 
     return {
-      user,
+      userId,
       profile: profile as
         | {
             id: string;
@@ -40,16 +38,16 @@ async function loadActor() {
         | null,
     };
   } catch {
-    return { user: null, profile: null as null };
+    return { userId: null, profile: null as null };
   }
 }
 
 export default async function PostTaskPage() {
   const locale = await getRequestLocale();
   const t = createTranslator(locale);
-  const { user, profile } = await loadActor();
+  const { userId, profile } = await loadActor();
 
-  if (!user) {
+  if (!userId) {
     redirect("/login");
   }
 
