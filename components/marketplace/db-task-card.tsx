@@ -108,7 +108,7 @@ export function DbTaskCard({
           </div>
           {task.reward_amount !== null ? (
             <p className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border-2 border-[#140625] bg-[#ffdd3d] px-3 py-2 text-sm font-black text-[#140625] shadow-[3px_3px_0_#140625]">
-              {formatUsdc(task.reward_amount, task.payment_token)}
+              {formatUsdc(task.reward_amount, task.payment_token ?? "USDC")}
               {isRaffle ? t("market.reward.perWinner") : null}
               <Image
                 src="/bountix-comic/stellar-icon.svg"

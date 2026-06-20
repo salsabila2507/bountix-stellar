@@ -308,31 +308,11 @@ export function TaskForm({
               </label>
             ))}
           </div>
-          {paymentMethod === "escrow_stellar" && (
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              {(["USDC", "USDT"] as const).map((token, i) => (
-                <label
-                  key={token}
-                  className="flex cursor-pointer items-start gap-3 rounded-lg border-2 border-[#140625] bg-[#fffaf4] p-3 shadow-[3px_3px_0_#140625] transition hover:bg-white has-[:checked]:bg-[#38e7ff]"
-                >
-                  <input
-                    type="radio"
-                    name="payment_token"
-                    value={token}
-                    defaultChecked={
-                      def?.payment_token
-                        ? def.payment_token === token
-                        : i === 0
-                    }
-                    className="mt-1 h-4 w-4 accent-[#7c3cff]"
-                  />
-                  <span className="text-sm font-black text-[#140625]">
-                    {token}
-                  </span>
-                </label>
-              ))}
+          {paymentMethod === "escrow_stellar" ? (
+            <div className="mt-3 rounded-lg border-2 border-[#140625] bg-[#fffaf4] p-3 text-sm font-black text-[#140625] shadow-[3px_3px_0_#140625]">
+              USDC
             </div>
-          )}
+          ) : null}
           {isRaffle && paymentMethod === "escrow_stellar" ? (
             <p className="mt-3 rounded-lg border-2 border-[#140625] bg-[#dff7e6] p-3 text-xs font-black leading-5 text-[#1f6b3a]">
               {t("raffle.escrowV1Compatible")}

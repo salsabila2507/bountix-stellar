@@ -126,7 +126,7 @@ export type DbTask = {
   eligibility_rules: string | null;
   access_level: TaskAccessLevel;
   payment_method: PaymentMethod;
-  payment_token: PaymentToken;
+  payment_token?: PaymentToken | null;
   escrow_contract_address: string | null;
   escrow_tx_hash: string | null;
   created_at: string;
@@ -135,7 +135,7 @@ export type DbTask = {
 
 /** Lightweight column list for list views — minimises row read size. */
 export const TASK_LIST_COLUMNS =
-  "id, creator_id, title, description, category, reward_amount, reward_currency, chain, status, task_type, external_link, start_date, end_date, reward_mode, raffle_winner_count, eligibility_rules, access_level, payment_method, payment_token, escrow_contract_address, escrow_tx_hash, created_at, updated_at";
+  "id, creator_id, title, description, category, reward_amount, reward_currency, chain, status, task_type, external_link, start_date, end_date, reward_mode, raffle_winner_count, eligibility_rules, access_level, payment_method, escrow_contract_address, escrow_tx_hash, created_at, updated_at";
 
 export const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

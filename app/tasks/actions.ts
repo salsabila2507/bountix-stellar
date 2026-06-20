@@ -281,7 +281,6 @@ export async function createTaskAction(
       eligibility_rules: data.eligibility_rules,
       access_level: data.access_level,
       payment_method: data.payment_method,
-      payment_token: data.payment_token,
     })
     .select("id")
     .maybeSingle();
@@ -346,7 +345,7 @@ export async function updateTaskAction(
   // Load full task state for ownership + funding checks.
   const { data: existing } = await supabase
     .from("tasks")
-    .select("creator_id, payment_method, payment_token, escrow_tx_hash, status")
+    .select("creator_id, payment_method, escrow_tx_hash, status")
     .eq("id", taskId)
     .maybeSingle();
 
@@ -365,10 +364,6 @@ export async function updateTaskAction(
   const payment_method: PaymentMethod = isFunded
     ? "escrow_stellar"
     : data.payment_method;
-  const payment_token: PaymentToken =
-    isFunded && isPaymentToken(String(existing.payment_token ?? ""))
-      ? existing.payment_token
-      : data.payment_token;
 
   // Lock status for escrow-funded tasks — on-chain state depends on it.
   const status = isFunded ? existing.status : data.status;
@@ -392,7 +387,6 @@ export async function updateTaskAction(
       eligibility_rules: data.eligibility_rules,
       access_level: data.access_level,
       payment_method,
-      payment_token,
     })
     .eq("id", taskId);
 
