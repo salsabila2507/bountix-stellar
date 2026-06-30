@@ -38,3 +38,4 @@
 - Explorer: `https://stellar.expert/`
 - Testnet friendbot: `https://friendbot.stellar.org`
 - Deployer funded with ~9997 XLM (testnet)
+
