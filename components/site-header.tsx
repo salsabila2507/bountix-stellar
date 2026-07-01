@@ -8,6 +8,7 @@ import { getRequestLocale } from "@/lib/i18n/server";
 import { getUnreadNotificationCount } from "@/lib/notifications";
 import { getSessionUser } from "@/lib/auth/session";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { createAdminClient } from "@/utils/supabase/server";
 
 type NavLink = {
   href: string;
@@ -25,29 +26,39 @@ const authedNavLinks = [
   { href: "/dashboard", labelKey: "common.dashboard" },
 ] satisfies NavLink[];
 
-const authedMenuLinks: NavLink[] = [
-  { href: "/wallet", labelKey: "nav.wallet" },
-  { href: "/post-task", labelKey: "common.postTask" },
-  { href: "/post-service", labelKey: "common.postService" },
-  { href: "/tasks", labelKey: "common.tasks" },
-  { href: "/creators", labelKey: "service.creatorServices" },
-  { href: "/dashboard/services", labelKey: "service.myServices" },
-  { href: "/notifications", labelKey: "common.notifications" },
-  { href: "/dashboard/profile", labelKey: "dashboard.nav.profile" },
-];
+function buildMenuLinks(isAdmin: boolean): NavLink[] {
+  const links: NavLink[] = [
+    { href: "/wallet", labelKey: "nav.wallet" },
+    { href: "/post-task", labelKey: "common.postTask" },
+    { href: "/post-service", labelKey: "common.postService" },
+    { href: "/tasks", labelKey: "common.tasks" },
+    { href: "/creators", labelKey: "service.creatorServices" },
+    { href: "/dashboard/services", labelKey: "service.myServices" },
+    { href: "/notifications", labelKey: "common.notifications" },
+    { href: "/dashboard/profile", labelKey: "dashboard.nav.profile" },
+  ];
+  if (isAdmin) links.unshift({ href: "/admin", labelKey: "common.admin" });
+  return links;
+}
 
 async function getCurrentUser() {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) return null;
-    return { id: sessionUser.id };
+    const supabase = createAdminClient();
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("privy_did", sessionUser.id)
+      .maybeSingle();
+    return { id: sessionUser.id, isAdmin: profile?.role === "admin" };
   } catch {
     return null;
   }
 }
 
 function getDisplayHandle(
-  user: { id: string } | null,
+  user: { id: string; isAdmin?: boolean } | null,
   fallback: string,
 ) {
   if (!user) return fallback;
@@ -113,7 +124,7 @@ export async function SiteHeader() {
                     {displayHandle}
                   </div>
                   <div className="mt-3 grid gap-2">
-                    {authedMenuLinks.map((link) => (
+                    {buildMenuLinks(user.isAdmin).map((link) => (
                       <Link
                         key={link.href}
                         href={link.href}
@@ -192,7 +203,7 @@ export async function SiteHeader() {
               <div className="mt-3 grid gap-2 border-t-2 border-[#140625]/20 pt-3">
                 {user ? (
                   <>
-                    {authedMenuLinks.map((link) => (
+                    {buildMenuLinks(user.isAdmin).map((link) => (
                       <Link
                         key={link.href}
                         href={link.href}
