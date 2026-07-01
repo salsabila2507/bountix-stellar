@@ -43,7 +43,11 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [require("daisyui")],
+  daisyui: {
+    themes: ["light", "dark", "night"],
+    darkTheme: "night",
+  },
 };
 
 export default config;

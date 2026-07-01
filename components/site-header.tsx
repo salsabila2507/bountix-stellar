@@ -26,6 +26,7 @@ const authedNavLinks = [
 ] satisfies NavLink[];
 
 const authedMenuLinks: NavLink[] = [
+  { href: "/wallet", labelKey: "nav.wallet" },
   { href: "/post-task", labelKey: "common.postTask" },
   { href: "/post-service", labelKey: "common.postService" },
   { href: "/tasks", labelKey: "common.tasks" },

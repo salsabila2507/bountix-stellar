@@ -75,6 +75,7 @@ const en = {
   "nav.tasks": "Tasks",
   "nav.creators": "Creators",
   "nav.about": "About",
+  "nav.wallet": "Wallet",
   "nav.telegram": "Telegram",
   "nav.x": "X",
 
@@ -799,6 +800,7 @@ const id: Partial<Record<keyof typeof en, string>> = {
   "nav.tasks": "Tugas",
   "nav.creators": "Creator",
   "nav.about": "Tentang",
+  "nav.wallet": "Wallet",
   "nav.telegram": "Telegram",
   "nav.x": "X",
   "footer.tagline": "Aturan tugas yang jelas, alur pembayaran yang hati-hati, dan halaman keselamatan publik untuk pengguna Bountix.",
@@ -1500,6 +1502,7 @@ const zh: Partial<Record<keyof typeof en, string>> = {
   "nav.tasks": "任务",
   "nav.creators": "创作者",
   "nav.about": "关于",
+  "nav.wallet": "钱包",
   "nav.telegram": "Telegram",
   "nav.x": "X",
   "footer.tagline": "为 Bountix 用户提供清晰任务规则、谨慎支付流程和公开安全页面。",
