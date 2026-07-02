@@ -1,5 +1,4 @@
 import {
-  Server,
   BASE_FEE,
   Keypair,
   TransactionBuilder,
@@ -7,19 +6,20 @@ import {
   Asset,
   Memo,
   MemoText,
-  MemoId,
+  MemoID,
   Transaction,
+  Horizon,
 } from "@stellar/stellar-sdk"
 
 export type MemoValue = { type: "none" } | { type: "text"; value: string } | { type: "id"; value: string }
 
 const HORIZON_URL = "https://horizon-testnet.stellar.org"
-const server = new Server(HORIZON_URL, { allowHttp: true })
+const server = new Horizon.Server(HORIZON_URL, { allowHttp: true })
 
 function makeMemo(memo?: MemoValue): Memo | undefined {
   if (!memo || memo.type === "none") return undefined
   if (memo.type === "text") return new MemoText(memo.value)
-  if (memo.type === "id") return new MemoId(memo.value)
+  if (memo.type === "id") return new MemoID(memo.value)
   return undefined
 }
 

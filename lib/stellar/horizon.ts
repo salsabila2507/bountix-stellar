@@ -1,15 +1,10 @@
 import {
   Horizon,
-  Server,
   Asset,
-  BASE_FEE,
-  Operation,
-  TransactionBuilder,
-  Keypair,
 } from "@stellar/stellar-sdk"
 
 const HORIZON_URL = "https://horizon-testnet.stellar.org"
-const server = new Server(HORIZON_URL, { allowHttp: true })
+const server = new Horizon.Server(HORIZON_URL, { allowHttp: true })
 
 export interface AccountInfo {
   id: string
@@ -116,12 +111,8 @@ export async function findStrictReceivePaths(
   }))
 }
 
-export function nativeAsset(): Asset {
-  return Asset.native()
-}
-
 export function assetFromCode(code: string, issuer?: string): Asset {
-  if (!code || code === "XLM") return nativeAsset()
+  if (!code || code === "XLM") return Asset.native()
   if (!issuer) throw new Error(`Issuer required for asset ${code}`)
   return new Asset(code, issuer)
 }

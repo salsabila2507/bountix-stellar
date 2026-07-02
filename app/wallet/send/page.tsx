@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useWallet } from "@/lib/stellar/wallet-context"
 import { useSecretKey } from "@/lib/stellar/wallet-context"
-import { nativeAsset, assetFromCode, findStrictSendPaths, fetchAccount } from "@/lib/stellar/horizon"
+import { assetFromCode, findStrictSendPaths, fetchAccount } from "@/lib/stellar/horizon"
 import { buildPayment, buildPathPaymentStrictSend, signTransaction, submitTransaction, type MemoValue } from "@/lib/stellar/transactions"
 import { getContacts } from "@/lib/stellar/contacts-store"
 import { ConfirmationModal } from "@/components/wallet/confirmation-modal"
@@ -28,7 +28,7 @@ export default function SendPage() {
   const contacts = getContacts()
 
   const getAsset = (): Asset => {
-    if (!assetCode || assetCode === "XLM") return nativeAsset()
+    if (!assetCode || assetCode === "XLM") return Asset.native()
     return assetFromCode(assetCode, assetIssuer)
   }
 
