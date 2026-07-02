@@ -5,6 +5,18 @@ import { useRouter } from "next/navigation"
 import { useWallet } from "@/lib/stellar/wallet-context"
 import { friendbotFund } from "@/lib/stellar/horizon"
 
+async function saveWalletAddress(address: string): Promise<void> {
+  try {
+    await fetch("/api/wallet/address", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address }),
+    })
+  } catch {
+    console.warn("Failed to save wallet address to profile")
+  }
+}
+
 export default function WalletSignup() {
   const router = useRouter()
   const { createWallet, isLoaded } = useWallet()
@@ -219,6 +231,7 @@ export default function WalletSignup() {
                 try {
                   const wallet = await createWallet(pincode)
                   setPublicKey(wallet.publicKey)
+                  saveWalletAddress(wallet.publicKey)
                   setStep("confirm")
                 } catch (err: any) {
                   setError(err?.message ?? "Failed to create wallet")

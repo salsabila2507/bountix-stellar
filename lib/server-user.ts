@@ -8,11 +8,17 @@ export async function getServerUser() {
   if (privyUser) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("id")
+      .select("id, username")
       .eq("privy_did", privyUser.id)
       .maybeSingle();
 
     if (profile) {
+      if (!profile.username) {
+        await supabase
+          .from("profiles")
+          .update({ username: getDefaultPrivyUsername(privyUser.id) })
+          .eq("id", profile.id);
+      }
       return { supabase, userId: profile.id };
     }
 
