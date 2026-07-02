@@ -19,25 +19,28 @@ export default function WalletSignup() {
   if (!isLoaded) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <span className="loading loading-spinner loading-lg" />
+        <span className="loading loading-spinner loading-lg text-[#38e7ff]" />
       </div>
     )
   }
 
   if (step === "done") {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="card bg-base-200 shadow-xl max-w-md w-full p-8 text-center space-y-4">
+      <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
+        <div className="comic-card max-w-md w-full p-8 text-center space-y-4">
           <div className="text-6xl">🎉</div>
-          <h1 className="text-2xl font-bold">Wallet Created!</h1>
-          <p className="text-base-content/70 break-all font-mono text-sm">{publicKey}</p>
+          <h1 className="text-2xl font-black text-[#140625]">Wallet Created!</h1>
+          <p className="font-mono text-sm text-[#5a3b66] break-all">{publicKey}</p>
           {fundMessage && (
-            <p className="text-sm text-base-content/60">{fundMessage}</p>
+            <p className="text-sm font-bold text-[#7c3cff]">{fundMessage}</p>
           )}
-          <p className="text-xs text-warning font-bold">
+          <p className="text-xs font-black text-[#ff4fb8]">
             ⚠️ Your secret key is encrypted in your browser. There is no recovery — if you lose your pincode or clear browser data, your wallet is gone.
           </p>
-          <button className="btn btn-primary" onClick={() => router.push("/wallet")}>
+          <button
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border-2 border-[#140625] bg-[#ffdd3d] px-4 py-2 text-sm font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#38e7ff]"
+            onClick={() => router.push("/wallet")}
+          >
             Go to Dashboard
           </button>
         </div>
@@ -47,60 +50,66 @@ export default function WalletSignup() {
 
   if (step === "confirm" && publicKey) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="card bg-base-200 shadow-xl max-w-md w-full p-8 space-y-4">
-          <h1 className="text-2xl font-bold text-center">Wallet Generated</h1>
-          <p className="text-base-content/70 text-sm text-center">
-            Your Stellar keypair is ready. The secret key is encrypted in your browser.
-          </p>
-
-          <div className="bg-base-300 rounded-lg p-4 space-y-2">
-            <p className="text-xs font-bold uppercase opacity-60">Public Key</p>
-            <p className="font-mono text-sm break-all">{publicKey}</p>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
+        <div className="comic-card max-w-md w-full p-8 space-y-4">
+          <div className="text-center">
+            <p className="comic-chip bg-[#7c3cff] text-white mx-auto w-fit">
+              Wallet Generated
+            </p>
+            <h1 className="mt-3 text-2xl font-black text-[#140625]">Keypair Ready</h1>
           </div>
 
-          <p className="text-xs text-warning font-bold text-center">
+          <div className="rounded-lg border-2 border-[#140625] bg-[#fffaf4] p-4 shadow-[3px_3px_0_#140625] space-y-2">
+            <p className="text-xs font-black uppercase text-[#5a3b66]">Public Key</p>
+            <p className="font-mono text-sm break-all text-[#140625]">{publicKey}</p>
+          </div>
+
+          <p className="text-xs font-black text-[#ff4fb8] text-center">
             ⚠️ Save your pincode. If you lose it or clear your browser data, this wallet cannot be recovered.
           </p>
 
-          <div className="divider text-xs uppercase opacity-60">Funding</div>
-          <p className="text-sm text-base-content/70 text-center">
-            You need testnet XLM to submit transactions. Friendbot gives you 10,000 free testnet XLM.
-          </p>
+          <div className="border-t-2 border-[#140625]/20 pt-4 text-center">
+            <p className="text-xs font-black uppercase text-[#5a3b66] mb-2">Funding</p>
+            <p className="text-sm font-bold text-[#3c214b]">
+              You need testnet XLM to submit transactions. Friendbot gives you 10,000 free testnet XLM.
+            </p>
+          </div>
 
-          <button
-            className="btn btn-primary w-full"
-            onClick={async () => {
-              setStep("funding")
-              setError(null)
-              try {
-                const resp = await friendbotFund(publicKey)
-                if (resp.ok) {
-                  setFundMessage("Funded with 10,000 testnet XLM via Friendbot.")
-                } else {
-                  const text = await resp.text()
+          <div className="space-y-2">
+            <button
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border-2 border-[#140625] bg-[#38e7ff] px-4 py-2 text-sm font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#ffdd3d]"
+              onClick={async () => {
+                setStep("funding")
+                setError(null)
+                try {
+                  const resp = await friendbotFund(publicKey)
+                  if (resp.ok) {
+                    setFundMessage("Funded with 10,000 testnet XLM via Friendbot.")
+                  } else {
+                    const text = await resp.text()
+                    setFundMessage("Created without funding. You can fund the wallet later.")
+                    console.warn("Friendbot responded:", text)
+                  }
+                } catch {
                   setFundMessage("Created without funding. You can fund the wallet later.")
-                  console.warn("Friendbot responded:", text)
+                  console.warn("Friendbot unreachable")
                 }
-              } catch {
-                setFundMessage("Created without funding. You can fund the wallet later.")
-                console.warn("Friendbot unreachable")
-              }
-              setStep("done")
-            }}
-          >
-            Fund via Friendbot (10,000 testnet XLM)
-          </button>
+                setStep("done")
+              }}
+            >
+              Fund via Friendbot (10,000 testnet XLM)
+            </button>
 
-          <button
-            className="btn btn-outline w-full"
-            onClick={() => {
-              setFundMessage("Created without funding.")
-              setStep("done")
-            }}
-          >
-            Skip — fund manually later
-          </button>
+            <button
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border-2 border-[#140625] bg-white px-4 py-2 text-sm font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#38e7ff]"
+              onClick={() => {
+                setFundMessage("Created without funding.")
+                setStep("done")
+              }}
+            >
+              Skip — fund manually later
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -108,11 +117,11 @@ export default function WalletSignup() {
 
   if (step === "funding") {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="card bg-base-200 shadow-xl max-w-md w-full p-8 text-center space-y-4">
-          <h1 className="text-2xl font-bold">Funding Wallet</h1>
-          <div className="flex items-center justify-center gap-2 text-sm">
-            <span className="loading loading-spinner" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
+        <div className="comic-card max-w-md w-full p-8 text-center space-y-4">
+          <h1 className="text-2xl font-black text-[#140625]">Funding Wallet</h1>
+          <div className="flex items-center justify-center gap-2 text-sm font-bold text-[#7c3cff]">
+            <span className="loading loading-spinner text-[#38e7ff]" />
             Funding account via Friendbot...
           </div>
         </div>
@@ -121,68 +130,81 @@ export default function WalletSignup() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh]">
-      <div className="card bg-base-200 shadow-xl max-w-md w-full p-8 space-y-4">
+    <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
+      <div className="comic-card max-w-md w-full p-8 space-y-4">
         {step === "intro" ? (
           <>
-            <h1 className="text-2xl font-bold text-center">Stellar Wallet</h1>
-            <p className="text-base-content/70 text-sm text-center">
-              This creates a Stellar keypair (public + secret key) for the Stellar testnet.
+            <div className="text-center">
+              <p className="comic-chip bg-[#ffdd3d] mx-auto w-fit">Stellar Wallet</p>
+              <h1 className="mt-3 text-2xl font-black text-[#140625]">Create Your Wallet</h1>
+            </div>
+
+            <p className="text-sm font-bold text-[#3c214b] text-center">
+              This creates a Stellar keypair (public + secret key) on the Stellar testnet.
             </p>
-            <div className="bg-base-300 rounded-lg p-4 space-y-2 text-sm">
+
+            <div className="rounded-lg border-2 border-[#140625] bg-[#fffaf4] p-4 shadow-[3px_3px_0_#140625] space-y-3 text-sm font-bold text-[#3c214b]">
               <p>🔑 <strong>Keypair</strong> — A Stellar address and its secret key. Your address is public; your secret key stays private.</p>
               <p>🔒 <strong>Pincode</strong> — Your secret key is encrypted in your browser using the pincode. Only you can unlock your wallet.</p>
               <p>🪙 <strong>Testnet XLM</strong> — You will need testnet XLM to send transactions. Friendbot can fund you with 10,000 free XLM.</p>
             </div>
-            <p className="text-xs text-warning font-bold text-center">
+
+            <p className="text-xs font-black text-[#ff4fb8] text-center">
               ⚠️ There is no server-side backup. If you lose your pincode or clear browser data, the wallet is gone forever.
             </p>
-            <button className="btn btn-primary w-full" onClick={() => setStep("create")}>
+
+            <button
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border-2 border-[#140625] bg-[#38e7ff] px-4 py-2 text-sm font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#ffdd3d]"
+              onClick={() => setStep("create")}
+            >
               Create Wallet
             </button>
           </>
         ) : (
           <>
-            <h1 className="text-2xl font-bold text-center">Set Pincode</h1>
-            <p className="text-base-content/70 text-sm text-center">
-              Your secret key will be encrypted in your browser using this pincode.
-            </p>
+            <div className="text-center">
+              <p className="comic-chip bg-[#7c3cff] text-white mx-auto w-fit">Step 2 of 2</p>
+              <h1 className="mt-3 text-2xl font-black text-[#140625]">Set Pincode</h1>
+              <p className="mt-1 text-sm font-bold text-[#3c214b]">
+                Your secret key will be encrypted in your browser using this pincode.
+              </p>
+            </div>
 
-            <div className="form-control w-full">
-              <label className="label">
-                <span className="label-text">Pincode</span>
-              </label>
+            <div>
+              <label className="text-xs font-black uppercase text-[#5a3b66]">Pincode</label>
               <input
                 type="password"
                 inputMode="numeric"
                 maxLength={6}
                 value={pincode}
                 onChange={(e) => setPincode(e.target.value.replace(/\D/g, ""))}
-                className="input input-bordered w-full text-center text-lg tracking-widest"
+                className="mt-1 block w-full rounded-lg border-2 border-[#140625] bg-[#fffaf4] px-3 py-2 text-center text-lg tracking-widest font-bold text-[#140625] outline-none focus:bg-white"
                 placeholder="• • • • • •"
                 autoFocus
               />
             </div>
 
-            <div className="form-control w-full">
-              <label className="label">
-                <span className="label-text">Confirm Pincode</span>
-              </label>
+            <div>
+              <label className="text-xs font-black uppercase text-[#5a3b66]">Confirm Pincode</label>
               <input
                 type="password"
                 inputMode="numeric"
                 maxLength={6}
                 value={confirmPincode}
                 onChange={(e) => setConfirmPincode(e.target.value.replace(/\D/g, ""))}
-                className="input input-bordered w-full text-center text-lg tracking-widest"
+                className="mt-1 block w-full rounded-lg border-2 border-[#140625] bg-[#fffaf4] px-3 py-2 text-center text-lg tracking-widest font-bold text-[#140625] outline-none focus:bg-white"
                 placeholder="• • • • • •"
               />
             </div>
 
-            {error && <div className="alert alert-error text-sm">{error}</div>}
+            {error && (
+              <div className="rounded-lg border-2 border-[#ff4fb8] bg-[#fff0f5] px-3 py-2 text-sm font-bold text-[#140625]">
+                {error}
+              </div>
+            )}
 
             <button
-              className="btn btn-primary w-full"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border-2 border-[#140625] bg-[#ffdd3d] px-4 py-2 text-sm font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#38e7ff] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
               onClick={async () => {
                 setError(null)
                 if (pincode.length < 4) {
@@ -206,7 +228,7 @@ export default function WalletSignup() {
               }}
               disabled={loading || pincode.length < 4 || pincode !== confirmPincode}
             >
-              {loading ? <span className="loading loading-spinner" /> : "Generate Wallet"}
+              {loading ? <span className="loading loading-spinner text-[#38e7ff]" /> : "Generate Wallet"}
             </button>
           </>
         )}

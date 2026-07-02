@@ -3,8 +3,8 @@
 import { useState } from "react"
 import { useWallet } from "@/lib/stellar/wallet-context"
 import { useSecretKey } from "@/lib/stellar/wallet-context"
-import { assetFromCode, findStrictSendPaths, fetchAccount } from "@/lib/stellar/horizon"
-import { buildPayment, buildPathPaymentStrictSend, signTransaction, submitTransaction, type MemoValue } from "@/lib/stellar/transactions"
+import { assetFromCode } from "@/lib/stellar/horizon"
+import { buildPayment, signTransaction, submitTransaction, type MemoValue } from "@/lib/stellar/transactions"
 import { getContacts } from "@/lib/stellar/contacts-store"
 import { ConfirmationModal } from "@/components/wallet/confirmation-modal"
 import { Asset } from "@stellar/stellar-sdk"
@@ -72,112 +72,106 @@ export default function SendPage() {
   if (isLocked || !publicKey) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <p className="text-base-content/60">Unlock your wallet first.</p>
+        <p className="text-sm font-bold text-[#5a3b66]">Unlock your wallet first.</p>
       </div>
     )
   }
 
   return (
     <div className="max-w-lg mx-auto p-4 space-y-6">
-      <h1 className="text-2xl font-bold">Send Payment</h1>
+      <h1 className="text-2xl font-black text-[#140625]">Send Payment</h1>
 
       {success && (
-        <div className="alert alert-success">
+        <div className="rounded-lg border-2 border-[#1f6b3a] bg-[#dff7e6] px-4 py-3 text-sm font-bold text-[#1f6b3a] flex items-center justify-between">
           <span>{success}</span>
-          <button className="btn btn-ghost btn-sm" onClick={() => setSuccess(null)}>✕</button>
+          <button className="text-[#1f6b3a] font-black text-lg leading-none" onClick={() => setSuccess(null)}>✕</button>
         </div>
       )}
 
       {error && (
-        <div className="alert alert-error">
+        <div className="rounded-lg border-2 border-[#ff4fb8] bg-[#fff0f5] px-4 py-3 text-sm font-bold text-[#140625] flex items-center justify-between">
           <span>{error}</span>
-          <button className="btn btn-ghost btn-sm" onClick={() => setError(null)}>✕</button>
+          <button className="text-[#ff4fb8] font-black text-lg leading-none" onClick={() => setError(null)}>✕</button>
         </div>
       )}
 
-      <div className="card bg-base-200 shadow-xl">
-        <div className="card-body space-y-4">
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text">Destination</span>
-            </label>
+      <div className="comic-card p-6 space-y-4">
+        <div>
+          <label className="text-xs font-black uppercase text-[#5a3b66]">Destination</label>
+          <input
+            type="text"
+            value={destination}
+            onChange={(e) => setDestination(e.target.value)}
+            className="mt-1 block w-full rounded-lg border-2 border-[#140625] bg-[#fffaf4] px-3 py-2 text-sm font-mono font-bold text-[#140625] outline-none focus:bg-white"
+            placeholder="G... or contact name"
+            list="contacts-list"
+          />
+          <datalist id="contacts-list">
+            {contacts.map((c) => (
+              <option key={c.id} value={c.address}>
+                {c.name}
+              </option>
+            ))}
+          </datalist>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-black uppercase text-[#5a3b66]">Asset</label>
+            <select
+              value={assetCode}
+              onChange={(e) => setAssetCode(e.target.value)}
+              className="mt-1 block w-full rounded-lg border-2 border-[#140625] bg-[#fffaf4] px-3 py-2 text-sm font-bold text-[#140625] outline-none focus:bg-white"
+            >
+              <option value="XLM">XLM</option>
+              <option value="USDC">USDC</option>
+              <option value="USDT">USDT</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-black uppercase text-[#5a3b66]">Amount</label>
             <input
               type="text"
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              className="input input-bordered font-mono text-sm"
-              placeholder="G... or contact name"
-              list="contacts-list"
+              inputMode="decimal"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+              className="mt-1 block w-full rounded-lg border-2 border-[#140625] bg-[#fffaf4] px-3 py-2 text-sm font-bold text-[#140625] outline-none focus:bg-white"
+              placeholder="0.0"
             />
-            <datalist id="contacts-list">
-              {contacts.map((c) => (
-                <option key={c.id} value={c.address}>
-                  {c.name}
-                </option>
-              ))}
-            </datalist>
           </div>
+        </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text">Asset</span>
-              </label>
-              <select
-                value={assetCode}
-                onChange={(e) => setAssetCode(e.target.value)}
-                className="select select-bordered"
-              >
-                <option value="XLM">XLM</option>
-                <option value="USDC">USDC</option>
-                <option value="USDT">USDT</option>
-              </select>
-            </div>
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text">Amount</span>
-              </label>
+        <div>
+          <label className="text-xs font-black uppercase text-[#5a3b66]">Memo</label>
+          <div className="mt-1 flex gap-2">
+            <select
+              value={memoType}
+              onChange={(e) => setMemoType(e.target.value as any)}
+              className="w-24 rounded-lg border-2 border-[#140625] bg-[#fffaf4] px-2 py-2 text-sm font-bold text-[#140625] outline-none focus:bg-white"
+            >
+              <option value="none">None</option>
+              <option value="text">Text</option>
+              <option value="id">ID</option>
+            </select>
+            {memoType !== "none" && (
               <input
                 type="text"
-                inputMode="decimal"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-                className="input input-bordered"
-                placeholder="0.0"
+                value={memoValue}
+                onChange={(e) => setMemoValue(e.target.value)}
+                className="flex-1 rounded-lg border-2 border-[#140625] bg-[#fffaf4] px-3 py-2 text-sm font-bold text-[#140625] outline-none focus:bg-white"
+                placeholder={memoType === "id" ? "Numeric ID" : "Memo text"}
               />
-            </div>
+            )}
           </div>
-
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text">Memo</span>
-            </label>
-            <div className="flex gap-2">
-              <select
-                value={memoType}
-                onChange={(e) => setMemoType(e.target.value as any)}
-                className="select select-bordered w-24"
-              >
-                <option value="none">None</option>
-                <option value="text">Text</option>
-                <option value="id">ID</option>
-              </select>
-              {memoType !== "none" && (
-                <input
-                  type="text"
-                  value={memoValue}
-                  onChange={(e) => setMemoValue(e.target.value)}
-                  className="input input-bordered flex-1"
-                  placeholder={memoType === "id" ? "Numeric ID" : "Memo text"}
-                />
-              )}
-            </div>
-          </div>
-
-          <button className="btn btn-primary w-full" onClick={handleSubmit} disabled={loading}>
-            {loading ? <span className="loading loading-spinner" /> : "Review & Send"}
-          </button>
         </div>
+
+        <button
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border-2 border-[#140625] bg-[#ffdd3d] px-4 py-2 text-sm font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#38e7ff] disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={handleSubmit}
+          disabled={loading}
+        >
+          {loading ? <span className="loading loading-spinner text-[#38e7ff]" /> : "Review & Send"}
+        </button>
       </div>
 
       <ConfirmationModal
@@ -193,17 +187,17 @@ export default function SendPage() {
       >
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
-            <span className="text-base-content/60">To:</span>
-            <span className="font-mono font-medium truncate max-w-[200px]">{destination}</span>
+            <span className="text-[#5a3b66]">To:</span>
+            <span className="font-mono font-bold text-[#140625] truncate max-w-[200px]">{destination}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-base-content/60">Amount:</span>
-            <span className="font-bold">{amount} {assetCode}</span>
+            <span className="text-[#5a3b66]">Amount:</span>
+            <span className="font-black text-[#140625]">{amount} {assetCode}</span>
           </div>
           {memoType !== "none" && memoValue && (
             <div className="flex justify-between">
-              <span className="text-base-content/60">Memo:</span>
-              <span>{memoValue}</span>
+              <span className="text-[#5a3b66]">Memo:</span>
+              <span className="text-[#140625]">{memoValue}</span>
             </div>
           )}
         </div>

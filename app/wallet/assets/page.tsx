@@ -62,69 +62,68 @@ export default function AssetsPage() {
   if (isLocked || !publicKey) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <p className="text-base-content/60">Unlock your wallet first.</p>
+        <p className="text-sm font-bold text-[#5a3b66]">Unlock your wallet first.</p>
       </div>
     )
   }
 
   return (
     <div className="max-w-lg mx-auto p-4 space-y-6">
-      <h1 className="text-2xl font-bold">Assets & Trustlines</h1>
+      <h1 className="text-2xl font-black text-[#140625]">Assets & Trustlines</h1>
 
-      <div className="card bg-base-200 shadow-xl">
-        <div className="card-body">
-          <h2 className="card-title">Your Balances</h2>
-          {balances.length === 0 ? (
-            <p className="text-base-content/60 text-center py-4">No balances loaded</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="table table-zebra">
-                <thead>
-                  <tr>
-                    <th>Asset</th>
-                    <th>Balance</th>
+      <div className="comic-card p-6">
+        <h2 className="text-lg font-black text-[#140625]">Your Balances</h2>
+        {balances.length === 0 ? (
+          <p className="text-sm font-bold text-[#5a3b66] text-center py-4">No balances loaded</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b-2 border-[#140625] text-left text-xs font-black uppercase text-[#5a3b66]">
+                  <th className="pb-2 pr-4">Asset</th>
+                  <th className="pb-2">Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {balances.map((b, i) => (
+                  <tr key={i} className="border-b border-[#140625]/10">
+                    <td className="py-2 pr-4 font-bold text-[#140625]">{b.asset_type === "native" ? "XLM" : `${b.asset_code}`}</td>
+                    <td className="py-2 font-mono text-[#140625]">{Number(b.balance).toLocaleString()}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {balances.map((b, i) => (
-                    <tr key={i}>
-                      <td>{b.asset_type === "native" ? "XLM" : `${b.asset_code}`}</td>
-                      <td className="font-mono">{Number(b.balance).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      <div className="card bg-base-200 shadow-xl">
-        <div className="card-body">
-          <h2 className="card-title">Available Assets</h2>
-          <p className="text-sm text-base-content/60 mb-4">
-            Add trustlines to hold non-XLM assets.
-          </p>
-          <div className="space-y-2">
-            {KNOWN_ASSETS.map((asset) => {
-              const added = hasTrustline(asset.code, asset.issuer)
-              return (
-                <div key={asset.code} className="flex items-center justify-between p-3 rounded-lg bg-base-300">
-                  <div>
-                    <span className="font-semibold">{asset.code}</span>
-                    <p className="font-mono text-xs text-base-content/40 truncate w-48">{asset.issuer}</p>
-                  </div>
-                  {added ? (
-                    <span className="badge badge-success badge-sm">Added</span>
-                  ) : (
-                    <button className="btn btn-primary btn-sm" onClick={() => handleAddTrustline(asset.code, asset.issuer)}>
-                      Add Trustline
-                    </button>
-                  )}
+      <div className="comic-card p-6">
+        <h2 className="text-lg font-black text-[#140625]">Available Assets</h2>
+        <p className="mt-1 text-sm font-bold text-[#5a3b66]">
+          Add trustlines to hold non-XLM assets.
+        </p>
+        <div className="mt-4 space-y-2">
+          {KNOWN_ASSETS.map((asset) => {
+            const added = hasTrustline(asset.code, asset.issuer)
+            return (
+              <div key={asset.code} className="flex items-center justify-between rounded-lg border-2 border-[#140625] bg-[#fffaf4] p-3 shadow-[2px_2px_0_#140625]">
+                <div>
+                  <span className="font-black text-[#140625]">{asset.code}</span>
+                  <p className="font-mono text-xs text-[#5a3b66] truncate w-48">{asset.issuer}</p>
                 </div>
-              )
-            })}
-          </div>
+                {added ? (
+                  <span className="rounded-md border-2 border-[#1f6b3a] bg-[#dff7e6] px-2 py-1 text-[0.65rem] font-black text-[#1f6b3a]">Added</span>
+                ) : (
+                  <button
+                    className="inline-flex min-h-9 items-center rounded-lg border-2 border-[#140625] bg-[#38e7ff] px-3 py-1 text-xs font-black uppercase text-[#140625] shadow-[2px_2px_0_#140625] transition hover:bg-[#ffdd3d]"
+                    onClick={() => handleAddTrustline(asset.code, asset.issuer)}
+                  >
+                    Add Trustline
+                  </button>
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
 
@@ -140,7 +139,7 @@ export default function AssetsPage() {
         loading={loading}
         error={confirmError}
       >
-        <p className="text-sm">
+        <p className="text-sm text-[#140625]">
           Add trustline for <strong>{addingAsset?.code}</strong> ({addingAsset?.issuer?.slice(0, 8)}...)?
         </p>
       </ConfirmationModal>
