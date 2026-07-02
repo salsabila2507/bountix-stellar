@@ -232,19 +232,22 @@ export default async function DashboardProfilePage({
 
   const locale = await getRequestLocale();
   const t = createTranslator(locale);
-  let result: Awaited<ReturnType<typeof getSessionAndProfile>> | null = null;
+  let profile: Profile | null = null;
+  let referrals: ReferralSummary = { totalInvited: 0, referredUsers: [] };
   try {
-    result = tokenFromUrl
+    const result = tokenFromUrl
       ? await getSessionAndProfileFromToken(tokenFromUrl)
       : await getSessionAndProfile();
+    if (result?.profile) {
+      profile = result.profile;
+      referrals = "referrals" in result ? result.referrals : referrals;
+    }
   } catch (e) {
     console.error("Failed to load profile:", e);
   }
-  const profile = result?.profile ?? null;
-  if (!profile || !result) {
+  if (!profile) {
     redirect("/login");
   }
-  const referrals = result.referrals;
   const referralLink = getReferralLink(profile.referral_code);
   const referralReviewStatus = getReferralReviewStatus({
     invitedCount: referrals.totalInvited,
