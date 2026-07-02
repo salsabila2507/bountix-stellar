@@ -26,8 +26,9 @@ const authedNavLinks = [
   { href: "/dashboard", labelKey: "common.dashboard" },
 ] satisfies NavLink[];
 
-function buildMenuLinks(isAdmin: boolean): NavLink[] {
+function buildMenuLinks(): NavLink[] {
   const links: NavLink[] = [
+    { href: "/admin", labelKey: "common.admin" },
     { href: "/wallet", labelKey: "nav.wallet" },
     { href: "/post-task", labelKey: "common.postTask" },
     { href: "/post-service", labelKey: "common.postService" },
@@ -37,14 +38,13 @@ function buildMenuLinks(isAdmin: boolean): NavLink[] {
     { href: "/notifications", labelKey: "common.notifications" },
     { href: "/dashboard/profile", labelKey: "dashboard.nav.profile" },
   ];
-  if (isAdmin) links.unshift({ href: "/admin", labelKey: "common.admin" });
   return links;
 }
 
 async function getCurrentUser() {
+  const sessionUser = await getSessionUser();
+  if (!sessionUser) return null;
   try {
-    const sessionUser = await getSessionUser();
-    if (!sessionUser) return null;
     const supabase = createAdminClient();
     const { data: profile } = await supabase
       .from("profiles")
@@ -53,7 +53,7 @@ async function getCurrentUser() {
       .maybeSingle();
     return { id: sessionUser.id, isAdmin: profile?.role === "admin" };
   } catch {
-    return null;
+    return { id: sessionUser.id, isAdmin: false };
   }
 }
 
@@ -124,7 +124,7 @@ export async function SiteHeader() {
                     {displayHandle}
                   </div>
                   <div className="mt-3 grid gap-2">
-                    {buildMenuLinks(user.isAdmin).map((link) => (
+                    {buildMenuLinks().map((link) => (
                       <Link
                         key={link.href}
                         href={link.href}
@@ -203,7 +203,7 @@ export async function SiteHeader() {
               <div className="mt-3 grid gap-2 border-t-2 border-[#140625]/20 pt-3">
                 {user ? (
                   <>
-                    {buildMenuLinks(user.isAdmin).map((link) => (
+                    {buildMenuLinks().map((link) => (
                       <Link
                         key={link.href}
                         href={link.href}

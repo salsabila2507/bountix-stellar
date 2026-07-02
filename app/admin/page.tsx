@@ -17,7 +17,7 @@ import { SiteHeader } from "@/components/site-header";
 import { DbTaskCard } from "@/components/marketplace/db-task-card";
 import { createTranslator } from "@/lib/i18n";
 import { getRequestLocale } from "@/lib/i18n/server";
-import { createClient } from "@/utils/supabase/server";
+import { getServerUser } from "@/lib/server-user";
 import { TASK_LIST_COLUMNS, type DbTask } from "@/lib/tasks";
 
 export const dynamic = "force-dynamic";
@@ -55,16 +55,14 @@ type AdminReferralGroup = {
 };
 
 async function loadAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { authorized: false as const };
+  const serverUser = await getServerUser();
+  if (!serverUser) return { authorized: false as const };
+  const { supabase, userId } = serverUser;
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("id, role")
-    .eq("id", user.id)
+    .eq("id", userId)
     .maybeSingle();
 
   if (profile?.role !== "admin") return { authorized: false as const };
