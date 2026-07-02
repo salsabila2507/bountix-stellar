@@ -97,12 +97,12 @@ export async function findStrictSendPaths(
 }
 
 export async function findStrictReceivePaths(
+  sourceAssets: Asset[],
   destinationAsset: Asset,
-  destinationAmount: string,
-  sourceAssets: Asset[]
+  destinationAmount: string
 ): Promise<Path[]> {
   const resp = await server
-    .strictReceivePaths(destinationAsset, destinationAmount, sourceAssets)
+    .strictReceivePaths(sourceAssets, destinationAsset, destinationAmount)
     .call()
   return resp.records.map((r: any) => ({
     source_amount: r.source_amount,
