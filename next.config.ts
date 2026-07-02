@@ -24,19 +24,6 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  webpack(config) {
-    config.resolve ??= {};
-    const alias =
-      config.resolve.alias && !Array.isArray(config.resolve.alias)
-        ? config.resolve.alias
-        : {};
-    config.resolve.alias = {
-      ...alias,
-      "@stripe/crypto": false,
-      "@farcaster/mini-app-solana": false,
-    };
-    return config;
-  },
   images: {
     dangerouslyAllowSVG: true,
     contentDispositionType: "attachment",
