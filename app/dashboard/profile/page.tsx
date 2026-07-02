@@ -241,7 +241,7 @@ export default async function DashboardProfilePage({
     console.error("Failed to load profile:", e);
   }
   const profile = result?.profile ?? null;
-  if (!profile) {
+  if (!profile || !result) {
     redirect("/login");
   }
   const referrals = result.referrals;
