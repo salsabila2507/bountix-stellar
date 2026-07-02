@@ -30,14 +30,17 @@ export default function WalletSignup() {
       const wallet = await createWallet(pincode)
       setPublicKey(wallet.publicKey)
       setStep("funding")
-      const resp = await friendbotFund(wallet.publicKey)
-      if (!resp.ok) {
-        const text = await resp.text()
-        throw new Error(`Friendbot error: ${text}`)
+      try {
+        const resp = await friendbotFund(wallet.publicKey)
+        if (!resp.ok) {
+          console.warn("Friendbot responded:", await resp.text())
+        }
+      } catch (fundErr) {
+        console.warn("Friendbot unreachable, wallet created without funding:", fundErr)
       }
       setStep("done")
     } catch (err: any) {
-      setError(err.message ?? "Failed to create wallet")
+      setError(err?.message ?? "Failed to create wallet")
     } finally {
       setLoading(false)
     }
