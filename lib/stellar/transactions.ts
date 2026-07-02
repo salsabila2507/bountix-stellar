@@ -5,8 +5,6 @@ import {
   Operation,
   Asset,
   Memo,
-  MemoText,
-  MemoID,
   Transaction,
   Horizon,
 } from "@stellar/stellar-sdk"
@@ -18,8 +16,8 @@ const server = new Horizon.Server(HORIZON_URL, { allowHttp: true })
 
 function makeMemo(memo?: MemoValue): Memo | undefined {
   if (!memo || memo.type === "none") return undefined
-  if (memo.type === "text") return new MemoText(memo.value)
-  if (memo.type === "id") return new MemoID(memo.value)
+  if (memo.type === "text") return Memo.text(memo.value)
+  if (memo.type === "id") return Memo.id(memo.value)
   return undefined
 }
 
