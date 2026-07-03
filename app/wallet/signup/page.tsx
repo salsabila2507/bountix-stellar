@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useWallet } from "@/lib/stellar/wallet-context"
+import { hasWallet } from "@/lib/stellar/wallet-store"
 import { friendbotFund } from "@/lib/stellar/horizon"
 
 async function saveWalletAddress(address: string): Promise<void> {
@@ -20,6 +21,16 @@ async function saveWalletAddress(address: string): Promise<void> {
 export default function WalletSignup() {
   const router = useRouter()
   const { createWallet, isLoaded } = useWallet()
+  const [initialCheckDone, setInitialCheckDone] = useState(false)
+
+  useEffect(() => {
+    if (isLoaded && !initialCheckDone) {
+      setInitialCheckDone(true)
+      if (hasWallet()) {
+        router.replace("/wallet")
+      }
+    }
+  }, [isLoaded, initialCheckDone, router])
   const [pincode, setPincode] = useState("")
   const [confirmPincode, setConfirmPincode] = useState("")
   const [step, setStep] = useState<"intro" | "create" | "confirm" | "funding" | "done">("intro")

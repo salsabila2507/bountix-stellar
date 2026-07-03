@@ -4,6 +4,7 @@ import { useWallet } from "@/lib/stellar/wallet-context"
 import { fetchPayments, type PaymentRecord } from "@/lib/stellar/horizon"
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { UnlockForm } from "@/components/wallet/unlock-form"
 
 function formatBalance(balance: string, asset_type: string, asset_code?: string): string {
   const num = Number.parseFloat(balance)
@@ -36,14 +37,14 @@ export default function WalletDashboard() {
     )
   }
 
-  if (isLocked || !publicKey) {
+  if (!publicKey) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-4">
         <div className="comic-card max-w-md w-full p-8 text-center">
           <p className="comic-chip bg-[#ffdd3d] mx-auto w-fit">Wallet</p>
           <h1 className="mt-3 text-2xl font-black text-[#140625]">Stellar Wallet</h1>
           <p className="mt-2 text-sm font-bold text-[#3c214b]">
-            Create a new wallet or unlock your existing one.
+            Create a wallet to get started.
           </p>
           <div className="mt-6 flex gap-3 justify-center">
             <Link
@@ -53,6 +54,21 @@ export default function WalletDashboard() {
               Create Wallet
             </Link>
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (isLocked) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-4">
+        <div className="comic-card max-w-md w-full p-8">
+          <p className="comic-chip bg-[#7c3cff] text-white mx-auto w-fit">Wallet Locked</p>
+          <h1 className="mt-3 text-2xl font-black text-[#140625] text-center">Unlock Wallet</h1>
+          <p className="mt-2 text-sm font-bold text-[#3c214b] text-center">
+            Enter your pincode to unlock your wallet.
+          </p>
+          <UnlockForm />
         </div>
       </div>
     )
