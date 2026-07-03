@@ -12,12 +12,9 @@ export function normalizeReferralCode(value: FormDataEntryValue | string | null)
 
 export function getReferralReviewStatus({
   invitedCount,
-  isEarlyContributor,
 }: {
   invitedCount: number;
-  isEarlyContributor: boolean;
 }): ReferralReviewStatus {
-  if (isEarlyContributor) return "approved";
   if (invitedCount > 0) return "pending_review";
   return "invite_to_qualify";
 }

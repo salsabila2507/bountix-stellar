@@ -2,7 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Clock3, MapPin, Users } from "lucide-react";
 import {
-  EarlyContributorsOnlyBadge,
   NegotiableBadge,
   PaymentBadge,
   StatusBadge,
@@ -56,9 +55,6 @@ export function TaskCard({ task, locale = DEFAULT_LOCALE }: TaskCardProps) {
           <PaymentBadge type={task.paymentType} locale={locale} />
           <StatusBadge status={task.status} locale={locale} />
           <NegotiableBadge negotiable={task.negotiable} locale={locale} />
-          {task.accessLevel === "early_contributor" ? (
-            <EarlyContributorsOnlyBadge locale={locale} />
-          ) : null}
         </div>
 
         <div className="mt-5 flex items-start justify-between gap-4">

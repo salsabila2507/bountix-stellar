@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Calendar, ExternalLink, Trophy } from "lucide-react";
-import { EarlyContributorsOnlyBadge } from "@/components/marketplace/badges";
 import {
   TASK_TYPE_COLOR,
   type DbTask,
@@ -52,7 +51,6 @@ export function DbTaskCard({
   const t = createTranslator(locale);
   const isOfficial = task.task_type !== "user_task";
   const isRaffle = task.reward_mode === "raffle";
-  const isEarlyContributorOnly = task.access_level === "early_contributor";
 
   return (
     <Link
@@ -89,9 +87,6 @@ export function DbTaskCard({
             <span className="inline-flex items-center rounded-md border-2 border-[#140625] bg-[#fff7e8] px-2 py-1 text-[0.6rem] font-black uppercase text-[#140625] shadow-[2px_2px_0_#140625]">
               {t("market.badge.official")}
             </span>
-          ) : null}
-          {isEarlyContributorOnly ? (
-            <EarlyContributorsOnlyBadge locale={locale} />
           ) : null}
         </div>
 

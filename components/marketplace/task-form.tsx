@@ -346,15 +346,9 @@ export function TaskForm({
                 />
                 <span className="text-sm font-black text-[#140625]">
                   {t(`task.access.${level}` as TranslationKey)}
-                  {level === "early_contributor" ? (
-                    <span className="mt-1 block text-xs font-bold text-[#5a3b66]">
-                      {t("form.postTask.accessEarlyHelp")}
-                    </span>
-                  ) : (
-                    <span className="mt-1 block text-xs font-bold text-[#5a3b66]">
-                      {t("form.postTask.accessOpenHelp")}
-                    </span>
-                  )}
+                  <span className="mt-1 block text-xs font-bold text-[#5a3b66]">
+                    {t("form.postTask.accessOpenHelp")}
+                  </span>
                 </span>
               </label>
             ))}

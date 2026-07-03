@@ -12,7 +12,6 @@ import {
   Users,
 } from "lucide-react";
 import {
-  EarlyContributorsOnlyBadge,
   NegotiableBadge,
   PaymentBadge,
   StatusBadge,
@@ -76,7 +75,6 @@ async function loadActorContext(taskId: string) {
       return {
         userId: null as string | null,
         isAdmin: false,
-        hasEarlyContributorAccess: false,
         ownApplication: null as DbApplication | null,
         ownSubmissions: [] as DbSubmission[],
         applicantCounts: { pending: 0, accepted: 0 },
@@ -86,13 +84,11 @@ async function loadActorContext(taskId: string) {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("id, role, is_early_contributor")
+      .select("id, role")
       .eq("id", userId)
       .maybeSingle();
 
     const isAdmin = profile?.role === "admin";
-    const hasEarlyContributorAccess =
-      (profile?.is_early_contributor ?? false) || isAdmin;
 
     const { data: app } = await supabase
       .from("task_applications")
@@ -114,7 +110,6 @@ async function loadActorContext(taskId: string) {
     return {
       userId,
       isAdmin,
-      hasEarlyContributorAccess,
       ownApplication: (app as DbApplication | null) ?? null,
       ownSubmissions,
       applicantCounts: { pending: 0, accepted: 0 },
@@ -123,7 +118,6 @@ async function loadActorContext(taskId: string) {
     return {
       userId: null as string | null,
       isAdmin: false,
-      hasEarlyContributorAccess: false,
       ownApplication: null as DbApplication | null,
       ownSubmissions: [] as DbSubmission[],
       applicantCounts: { pending: 0, accepted: 0 },
@@ -159,10 +153,6 @@ export default async function TaskDetailPage({ params }: RouteParams) {
     const isOfficial = dbTask.task_type !== "user_task";
     const isRaffle = dbTask.reward_mode === "raffle";
     const isClosed = ["completed", "cancelled"].includes(dbTask.status);
-    const requiresEarlyContributor =
-      dbTask.access_level === "early_contributor";
-    const canWorkTask =
-      !requiresEarlyContributor || ctx.hasEarlyContributorAccess;
 
     return (
       <main className="comic-page min-h-screen overflow-hidden text-[#140625]">
@@ -201,9 +191,6 @@ export default async function TaskDetailPage({ params }: RouteParams) {
                       <Trophy aria-hidden="true" className="h-3 w-3" />
                       {t("raffle.label")}
                     </span>
-                  ) : null}
-                  {requiresEarlyContributor ? (
-                    <EarlyContributorsOnlyBadge locale={locale} />
                   ) : null}
                 </div>
 
@@ -368,11 +355,6 @@ export default async function TaskDetailPage({ params }: RouteParams) {
                   <h2 className="text-lg font-black text-[#140625]">
                     {t("taskDetail.wantToApply")}
                   </h2>
-                  {requiresEarlyContributor ? (
-                    <p className="mt-2 rounded-lg border-2 border-[#140625] bg-[#f1d8ff] p-3 text-sm font-black leading-6 text-[#140625]">
-                      {t("early.onlyContributorsCanWork")}
-                    </p>
-                  ) : null}
                   <p className="mt-2 text-sm font-semibold leading-6 text-[#5a3b66]">
                     {t("taskDetail.loginApplyBody")}
                   </p>
@@ -386,12 +368,6 @@ export default async function TaskDetailPage({ params }: RouteParams) {
                   app={ctx.ownApplication}
                   submissions={ctx.ownSubmissions}
                   taskClosed={isClosed}
-                  canSubmitWork={canWorkTask}
-                  workBlockedReason={
-                    requiresEarlyContributor && !canWorkTask
-                      ? "early_contributor"
-                      : null
-                  }
                   locale={locale}
                 />
               ) : isClosed ? (
@@ -401,8 +377,6 @@ export default async function TaskDetailPage({ params }: RouteParams) {
                     {t("taskDetail.closedBody")}
                   </p>
                 </div>
-              ) : !canWorkTask ? (
-                <WorkGateNotice locale={locale} />
               ) : (
                 <ApplyForm taskId={dbTask.id} locale={locale} />
               )}
@@ -447,9 +421,6 @@ export default async function TaskDetailPage({ params }: RouteParams) {
                   negotiable={previewTask.negotiable}
                   locale={locale}
                 />
-                {previewTask.accessLevel === "early_contributor" ? (
-                  <EarlyContributorsOnlyBadge locale={locale} />
-                ) : null}
               </div>
 
               <div className="mt-5 rounded-lg border-2 border-[#140625] bg-[#f1d8ff] px-4 py-3 text-sm font-black leading-6 text-[#140625] shadow-[4px_4px_0_#140625]">
@@ -546,15 +517,11 @@ function ApplicationStatusCard({
   app,
   submissions,
   taskClosed,
-  canSubmitWork,
-  workBlockedReason,
   locale,
 }: {
   app: DbApplication;
   submissions: DbSubmission[];
   taskClosed: boolean;
-  canSubmitWork: boolean;
-  workBlockedReason: "early_contributor" | null;
   locale: Locale;
 }) {
   const t = createTranslator(locale);
@@ -595,11 +562,8 @@ function ApplicationStatusCard({
         ) : null}
       </div>
 
-      {app.status === "accepted" && !latest && canSubmitWork ? (
+      {app.status === "accepted" && !latest ? (
         <SubmitWorkForm applicationId={app.id} locale={locale} />
-      ) : null}
-      {app.status === "accepted" && !latest && !canSubmitWork && workBlockedReason ? (
-        <WorkGateNotice locale={locale} />
       ) : null}
 
       {latest ? (
@@ -661,37 +625,11 @@ function ApplicationStatusCard({
 
       {app.status === "accepted" &&
       latest &&
-      latest.status === "revision_requested" &&
-      canSubmitWork ? (
+      latest.status === "revision_requested" ? (
         <SubmitWorkForm applicationId={app.id} locale={locale} />
-      ) : null}
-      {app.status === "accepted" &&
-      latest &&
-      latest.status === "revision_requested" &&
-      !canSubmitWork &&
-      workBlockedReason ? (
-        <WorkGateNotice locale={locale} />
       ) : null}
     </>
   );
 }
 
-function WorkGateNotice({
-  locale,
-}: {
-  locale: Locale;
-}) {
-  const t = createTranslator(locale);
 
-  return (
-    <div className="comic-card-soft bg-[#f1d8ff] p-5">
-      <LockKeyhole
-        aria-hidden="true"
-        className="h-5 w-5 text-[#7c3cff]"
-      />
-      <p className="mt-2 text-sm font-black leading-6 text-[#140625]">
-        {t("early.onlyContributorsCanWork")}
-      </p>
-    </div>
-  );
-}

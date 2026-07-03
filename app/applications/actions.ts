@@ -18,27 +18,14 @@ async function loadActor() {
   if (!user) return { supabase, user: null, profile: null as null };
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, role, is_early_contributor")
+    .select("id, role")
     .eq("id", user.id)
     .maybeSingle();
   return {
     supabase,
     user,
-    profile: profile as
-      | {
-          id: string;
-          role: string;
-          is_early_contributor: boolean;
-        }
-      | null,
+    profile: profile as { id: string; role: string } | null,
   };
-}
-
-function hasEarlyContributorAccess(profile: {
-  role: string;
-  is_early_contributor: boolean;
-}): boolean {
-  return profile.role === "admin" || profile.is_early_contributor;
 }
 
 function isHttpsUrl(value: string): boolean {
@@ -77,16 +64,6 @@ export async function applyToTaskAction(
 
   if (!task) {
     return { status: "error", message: "Task not found." };
-  }
-
-  if (
-    task.access_level === "early_contributor" &&
-    !hasEarlyContributorAccess(profile)
-  ) {
-    return {
-      status: "error",
-      message: "Only Early Contributors can work on this task.",
-    };
   }
 
   const message = String(formData.get("message") ?? "").trim();
@@ -276,22 +253,6 @@ export async function createSubmissionAction(
     };
   }
 
-  const { data: task } = await supabase
-    .from("tasks")
-    .select("access_level")
-    .eq("id", app.task_id)
-    .maybeSingle();
-
-  if (
-    task?.access_level === "early_contributor" &&
-    !hasEarlyContributorAccess(profile)
-  ) {
-    return {
-      status: "error",
-      message: "Only Early Contributors can work on this task.",
-    };
-  }
-
   const { error } = await supabase.from("task_submissions").insert({
     task_id: app.task_id,
     application_id: applicationId,
@@ -355,24 +316,6 @@ export async function updateSubmissionAction(
       status: "error",
       message: "You can only edit your own submissions.",
     };
-  }
-
-  if (row?.task_id) {
-    const { data: task } = await supabase
-      .from("tasks")
-      .select("access_level")
-      .eq("id", row.task_id)
-      .maybeSingle();
-
-    if (
-      task?.access_level === "early_contributor" &&
-      !hasEarlyContributorAccess(profile)
-    ) {
-      return {
-        status: "error",
-        message: "Only Early Contributors can work on this task.",
-      };
-    }
   }
 
   const { error } = await supabase

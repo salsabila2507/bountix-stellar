@@ -33,7 +33,6 @@ export type ServiceCreatorProfile = {
   avatar_url: string | null;
   skills: string[];
   social_links: SocialLinks;
-  is_early_contributor: boolean;
 };
 
 export type PublicServiceOffer = DbServiceOffer & {

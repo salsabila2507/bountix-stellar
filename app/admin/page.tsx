@@ -8,11 +8,7 @@ import {
   Megaphone,
   Users,
 } from "lucide-react";
-import {
-  createGlobalNotificationAction,
-  grantEarlyContributorFromReferralAction,
-  setEarlyContributorAction,
-} from "@/app/admin/actions";
+import { createGlobalNotificationAction } from "@/app/admin/actions";
 import { SiteHeader } from "@/components/site-header";
 import { DbTaskCard } from "@/components/marketplace/db-task-card";
 import { createTranslator } from "@/lib/i18n";
@@ -34,7 +30,6 @@ type AdminProfile = {
   display_name: string | null;
   role: string;
   can_use_platform: boolean;
-  is_early_contributor: boolean;
   created_at: string;
 };
 
@@ -43,7 +38,6 @@ type AdminReferralProfile = {
   username: string;
   display_name: string | null;
   role: string;
-  is_early_contributor: boolean;
   referral_code: string;
   created_at: string;
 };
@@ -77,7 +71,7 @@ async function loadAdmin() {
   const { data: profiles } = await supabase
     .from("profiles")
     .select(
-      "id, username, display_name, role, can_use_platform, is_early_contributor, created_at",
+      "id, username, display_name, role, can_use_platform, created_at",
     )
     .order("created_at", { ascending: false })
     .limit(100);
@@ -104,7 +98,7 @@ async function loadAdmin() {
     ? await supabase
         .from("profiles")
         .select(
-          "id, username, display_name, role, is_early_contributor, referral_code, created_at",
+          "id, username, display_name, role, referral_code, created_at",
         )
         .in("id", referralProfileIds)
     : { data: [] };
@@ -159,11 +153,6 @@ async function loadAdmin() {
     .from("tasks")
     .select("id", { count: "exact", head: true });
 
-  const { count: earlyContributors } = await supabase
-    .from("profiles")
-    .select("id", { count: "exact", head: true })
-    .eq("is_early_contributor", true);
-
   return {
     authorized: true as const,
     officialTasks: (tasks ?? []) as DbTask[],
@@ -172,7 +161,6 @@ async function loadAdmin() {
       pendingApps: pendingApps ?? 0,
       pendingSubs: pendingSubs ?? 0,
       totalTasks: totalTasks ?? 0,
-      earlyContributors: earlyContributors ?? 0,
       referralInvites: referralCount ?? referrals.length,
     },
     referralGroups,
@@ -257,78 +245,6 @@ export default async function AdminHomePage() {
         </div>
 
         <div className="mt-10">
-          <h2 className="text-2xl font-black uppercase leading-none">
-            Early contributors
-          </h2>
-          <p className="mt-2 text-sm font-bold leading-6 text-[#5a3b66]">
-            Mark users who can work on Early Contributor-only tasks.
-          </p>
-        </div>
-
-        <div className="comic-card mt-6 overflow-hidden bg-white p-0">
-          <div className="grid gap-0 divide-y-2 divide-[#140625]">
-            <div className="grid gap-3 bg-[#f1d8ff] p-4 text-xs font-black uppercase text-[#140625] sm:grid-cols-[1fr_140px_140px_170px]">
-              <span>User</span>
-              <span>Platform</span>
-              <span>Badge</span>
-              <span>Action</span>
-            </div>
-            {result.profiles.length === 0 ? (
-              <div className="p-5 text-sm font-bold text-[#5a3b66]">
-                No profiles found.
-              </div>
-            ) : (
-              result.profiles.map((profile) => (
-                <div
-                  key={profile.id}
-                  className="grid gap-3 p-4 text-sm font-bold text-[#3c214b] sm:grid-cols-[1fr_140px_140px_170px] sm:items-center"
-                >
-                  <div>
-                    <Link
-                      href={`/profile/${profile.username}`}
-                      className="font-black text-[#7c3cff] underline decoration-2 underline-offset-2"
-                    >
-                      @{profile.username}
-                    </Link>
-                    <p className="mt-1 text-xs text-[#5a3b66]">
-                      {profile.display_name ?? "No display name"} ·{" "}
-                      {profile.role}
-                    </p>
-                  </div>
-                  <span className="inline-flex w-fit rounded-md border-2 border-[#140625] bg-white px-2 py-1 text-[0.65rem] font-black uppercase text-[#140625] shadow-[2px_2px_0_#140625]">
-                    {profile.can_use_platform ? "Approved" : "Pending"}
-                  </span>
-                  <span
-                    className={`inline-flex w-fit rounded-md border-2 border-[#140625] px-2 py-1 text-[0.65rem] font-black uppercase shadow-[2px_2px_0_#140625] ${
-                      profile.is_early_contributor
-                        ? "bg-[#dff7e6] text-[#1f6b3a]"
-                        : "bg-white text-[#5a3b66]"
-                    }`}
-                  >
-                    {profile.is_early_contributor ? "Early" : "Normal"}
-                  </span>
-                  <form action={setEarlyContributorAction}>
-                    <input type="hidden" name="profile_id" value={profile.id} />
-                    <input
-                      type="hidden"
-                      name="is_early_contributor"
-                      value={profile.is_early_contributor ? "false" : "true"}
-                    />
-                    <button className="inline-flex min-h-10 w-full items-center justify-center rounded-lg border-2 border-[#140625] bg-[#ffdd3d] px-3 py-2 text-xs font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#38e7ff]">
-                      {profile.is_early_contributor ? "Unmark" : "Mark early"}
-                    </button>
-                  </form>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className="mt-6 rounded-lg border-2 border-[#140625] bg-[#f1d8ff] p-4 text-sm font-black text-[#140625] shadow-[4px_4px_0_#140625]">
-          Early Contributors: {result.stats.earlyContributors}
-        </div>
-
-        <div className="mt-10">
           <h2 className="flex items-center gap-2 text-2xl font-black uppercase leading-none">
             <Gift aria-hidden="true" className="h-5 w-5" />
             {t("admin.referrals.title")}
@@ -340,11 +256,9 @@ export default async function AdminHomePage() {
 
         <div className="comic-card mt-6 overflow-hidden bg-white p-0">
           <div className="grid gap-0 divide-y-2 divide-[#140625]">
-            <div className="grid gap-3 bg-[#f1d8ff] p-4 text-xs font-black uppercase text-[#140625] sm:grid-cols-[1fr_110px_140px_190px]">
+            <div className="grid gap-3 bg-[#f1d8ff] p-4 text-xs font-black uppercase text-[#140625] sm:grid-cols-[1fr_110px_1fr]">
               <span>{t("admin.referrals.referrer")}</span>
               <span>{t("admin.referrals.count")}</span>
-              <span>{t("referral.reviewStatus")}</span>
-              <span>{t("admin.referrals.action")}</span>
             </div>
             {result.referralGroups.length === 0 ? (
               <div className="p-5 text-sm font-bold text-[#5a3b66]">
@@ -354,7 +268,7 @@ export default async function AdminHomePage() {
               result.referralGroups.map((group) => (
                 <div
                   key={group.referrer.id}
-                  className="grid gap-3 p-4 text-sm font-bold text-[#3c214b] sm:grid-cols-[1fr_110px_140px_190px] sm:items-start"
+                  className="grid gap-3 p-4 text-sm font-bold text-[#3c214b] sm:grid-cols-[1fr_110px] sm:items-start"
                 >
                   <div>
                     <Link
@@ -375,34 +289,8 @@ export default async function AdminHomePage() {
                     <Users aria-hidden="true" className="h-3.5 w-3.5" />
                     {group.invitedUsers.length}
                   </span>
-                  <span
-                    className={`inline-flex w-fit rounded-md border-2 border-[#140625] px-2 py-1 text-[0.65rem] font-black uppercase shadow-[2px_2px_0_#140625] ${
-                      group.referrer.is_early_contributor
-                        ? "bg-[#dff7e6] text-[#1f6b3a]"
-                        : "bg-white text-[#5a3b66]"
-                    }`}
-                  >
-                    {group.referrer.is_early_contributor
-                      ? t("referral.status.approved")
-                      : t("referral.status.pendingReview")}
-                  </span>
-                  <form action={grantEarlyContributorFromReferralAction}>
-                    <input
-                      type="hidden"
-                      name="profile_id"
-                      value={group.referrer.id}
-                    />
-                    <button
-                      disabled={group.referrer.is_early_contributor}
-                      className="inline-flex min-h-10 w-full items-center justify-center rounded-lg border-2 border-[#140625] bg-[#ffdd3d] px-3 py-2 text-xs font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#38e7ff] disabled:cursor-not-allowed disabled:bg-[#dff7e6] disabled:text-[#1f6b3a]"
-                    >
-                      {group.referrer.is_early_contributor
-                        ? t("admin.referrals.granted")
-                        : t("admin.referrals.grant")}
-                    </button>
-                  </form>
 
-                  <div className="rounded-lg border-2 border-[#140625] bg-[#fffaf4] p-3 sm:col-span-4">
+                  <div className="rounded-lg border-2 border-[#140625] bg-[#fffaf4] p-3 sm:col-span-2">
                     <p className="text-xs font-black uppercase text-[#5a3b66]">
                       {t("admin.referrals.referredUsers")}
                     </p>

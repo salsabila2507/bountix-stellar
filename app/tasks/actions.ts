@@ -11,7 +11,6 @@ import {
   REWARD_MODES,
   isAdminTaskType,
   isUuid,
-  shouldGateSoftOpenTask,
   type TaskStatus,
   type TaskType,
   type TaskAccessLevel,
@@ -114,16 +113,6 @@ function parseTaskInput(formData: FormData): {
   }
   if (!(TASK_ACCESS_LEVELS as readonly string[]).includes(access_level)) {
     fieldErrors.access_level = "Invalid task access setting.";
-  }
-
-  if (
-    shouldGateSoftOpenTask({
-      title,
-      description,
-      category: category || null,
-    })
-  ) {
-    access_level = "early_contributor";
   }
 
   let raffle_winner_count = 1;

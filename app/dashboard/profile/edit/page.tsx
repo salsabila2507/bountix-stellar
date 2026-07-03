@@ -26,7 +26,7 @@ export default async function ProfileEditPage() {
   const { data } = await supabase
     .from("profiles")
     .select(
-      "id, username, display_name, bio, avatar_url, role, skills, wallet_address, social_links, preferred_language, can_use_platform, is_early_contributor, referral_code, created_at, updated_at",
+      "id, username, display_name, bio, avatar_url, role, skills, wallet_address, social_links, preferred_language, can_use_platform, referral_code, created_at, updated_at",
     )
     .eq("id", user.id)
     .maybeSingle();

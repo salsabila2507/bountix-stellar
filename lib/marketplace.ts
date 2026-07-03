@@ -22,7 +22,7 @@ export type Task = {
   skills: string[];
   timeline: string;
   negotiable: boolean;
-  accessLevel: "early_contributor";
+  accessLevel: "open";
 };
 
 export type Creator = {

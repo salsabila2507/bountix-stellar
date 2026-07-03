@@ -55,7 +55,7 @@ async function fetchActiveServiceOffers(): Promise<{
     const { data: profiles } = await supabase
       .from("profiles")
       .select(
-        "id, username, display_name, avatar_url, skills, social_links, is_early_contributor",
+        "id, username, display_name, avatar_url, skills, social_links",
       )
       .in("id", creatorIds);
 
@@ -68,7 +68,6 @@ async function fetchActiveServiceOffers(): Promise<{
         avatar_url: profile.avatar_url,
         skills: profile.skills ?? [],
         social_links: (profile.social_links ?? {}) as SocialLinks,
-        is_early_contributor: Boolean(profile.is_early_contributor),
       });
     }
 

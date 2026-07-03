@@ -1,10 +1,13 @@
 "use client"
 
-import { useWallet } from "@/lib/stellar/wallet-context"
+import { useWallet, useSecretKey } from "@/lib/stellar/wallet-context"
 import { fetchPayments, type PaymentRecord } from "@/lib/stellar/horizon"
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { UnlockForm } from "@/components/wallet/unlock-form"
+import { ConfirmationModal } from "@/components/wallet/confirmation-modal"
+import { buildChangeTrust, signTransaction, submitTransaction } from "@/lib/stellar/transactions"
+import { Asset } from "@stellar/stellar-sdk"
 
 function formatBalance(balance: string, asset_type: string, asset_code?: string): string {
   const num = Number.parseFloat(balance)
@@ -18,6 +21,11 @@ export default function WalletDashboard() {
   const { isLoaded, isLocked, publicKey, account, refreshAccount } = useWallet()
   const [payments, setPayments] = useState<PaymentRecord[]>([])
   const [loadingPayments, setLoadingPayments] = useState(false)
+  const [usdcModalOpen, setUsdcModalOpen] = useState(false)
+  const [usdcLoading, setUsdcLoading] = useState(false)
+  const [usdcError, setUsdcError] = useState<string | null>(null)
+  const [usdcMessage, setUsdcMessage] = useState<string | null>(null)
+  const { requestUnlock } = useSecretKey()
 
   useEffect(() => {
     if (publicKey && !isLocked) {
@@ -28,6 +36,82 @@ export default function WalletDashboard() {
         .finally(() => setLoadingPayments(false))
     }
   }, [publicKey, isLocked])
+
+  async function handleGetUsdc(pincode: string) {
+    setUsdcError(null)
+    setUsdcMessage(null)
+    setUsdcLoading(true)
+    try {
+      const wallet = await requestUnlock(pincode)
+
+      // 1. Get faucet info
+      const infoResp = await fetch("/api/wallet/faucet-usdc")
+      const info = await infoResp.json()
+      if (!info.configured) {
+        setUsdcError("USDC faucet not configured. Ask the admin to run the faucet setup.")
+        return
+      }
+
+      const issuer = info.issuer
+      const usdcAsset = new Asset("USDC", issuer)
+
+      // 2. Fund account if needed (friendbot)
+      if (!publicKey) return
+      try {
+        await fetch(`https://friendbot.stellar.org?addr=${publicKey}`)
+      } catch {
+        // friendbot might fail if account already exists; that's fine
+      }
+
+      // 3. Add trustline if needed
+      const hasTrustline = account?.balances?.some(
+        (b) => b.asset_code === "USDC" && b.asset_issuer === issuer,
+      )
+      if (!hasTrustline) {
+        const changeTrustTx = await buildChangeTrust(wallet.secretKey, usdcAsset)
+        const signed = signTransaction(changeTrustTx, wallet.secretKey)
+        await submitTransaction(signed)
+      }
+
+      // 4. Keep trying until we get USDC (handles needsFunding / needsTrustline retries)
+      let attempts = 0
+      while (attempts < 5) {
+        attempts++
+        const fundResp = await fetch("/api/wallet/faucet-usdc", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ publicKey }),
+        })
+        const fundData = await fundResp.json()
+
+        if (fundData.success) {
+          setUsdcMessage(`Received 100 testnet USDC! Tx: ${fundData.txHash}`)
+          await refreshAccount()
+          return
+        }
+
+        if (fundData.needsTrustline) {
+          // Trustline just added above; retry
+          continue
+        }
+
+        if (fundData.needsFunding) {
+          // Friendbot funded above; retry
+          continue
+        }
+
+        // Unknown error
+        setUsdcError(fundData.error ?? "Failed to get USDC")
+        return
+      }
+
+      setUsdcError("Timed out trying to get USDC. Try again.")
+    } catch (err: any) {
+      setUsdcError(err?.message ?? "Something went wrong")
+    } finally {
+      setUsdcLoading(false)
+    }
+  }
 
   if (!isLoaded) {
     return (
@@ -105,6 +189,19 @@ export default function WalletDashboard() {
             </div>
             <div className="text-xs font-bold text-[#7c3cff]">Stellar Testnet</div>
           </div>
+          <button
+            className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg border-2 border-[#140625] bg-[#38e7ff] px-3 py-2 text-xs font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#ffdd3d] disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => setUsdcModalOpen(true)}
+            disabled={usdcLoading}
+          >
+            {usdcLoading ? <span className="loading loading-spinner" /> : "Get 100 Testnet USDC"}
+          </button>
+          {usdcMessage && (
+            <p className="mt-2 text-xs font-bold text-[#1f6b3a] break-all">{usdcMessage}</p>
+          )}
+          {usdcError && (
+            <p className="mt-2 text-xs font-bold text-[#ff4fb8]">{usdcError}</p>
+          )}
         </div>
 
         {otherBalances.length > 0 && (
@@ -174,6 +271,22 @@ export default function WalletDashboard() {
           </div>
         )}
       </div>
+
+      <ConfirmationModal
+        open={usdcModalOpen}
+        title="Get Testnet USDC"
+        onConfirm={handleGetUsdc}
+        onCancel={() => {
+          setUsdcModalOpen(false)
+          setUsdcError(null)
+        }}
+        loading={usdcLoading}
+        error={usdcError}
+      >
+        <p className="text-sm font-bold text-[#3c214b]">
+          This will add a trustline for testnet USDC and request 100 USDC from the faucet.
+        </p>
+      </ConfirmationModal>
     </div>
   )
 }

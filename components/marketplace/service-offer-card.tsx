@@ -106,12 +106,6 @@ export function ServiceOfferCard({
           <span className="truncate">
             {creatorName} · @{service.creator.username}
           </span>
-          {service.creator.is_early_contributor ? (
-            <BadgeCheck
-              aria-label={t("early.contributor")}
-              className="h-4 w-4 shrink-0 text-[#7c3cff]"
-            />
-          ) : null}
         </Link>
 
         <p className="mt-4 line-clamp-4 text-sm font-semibold leading-6 text-[#5a3b66]">

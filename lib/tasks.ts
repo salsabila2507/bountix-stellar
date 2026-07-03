@@ -55,16 +55,12 @@ export const REWARD_MODE_LABEL: Record<RewardMode, string> = {
   raffle: "Raffle reward",
 };
 
-export const TASK_ACCESS_LEVELS = ["open", "early_contributor"] as const;
+export const TASK_ACCESS_LEVELS = ["open"] as const;
 export type TaskAccessLevel = (typeof TASK_ACCESS_LEVELS)[number];
 
 export const TASK_ACCESS_LEVEL_LABEL: Record<TaskAccessLevel, string> = {
   open: "Open to everyone",
-  early_contributor: "Early Contributors only",
 };
-
-const SOFT_OPEN_DEMO_TASK_RE =
-  /(^|[^a-z0-9_])(fake|demo|example|sample|preview)([^a-z0-9_]|$)|(^|[^a-z0-9_])test[\s_-]*(task|bounty|demo|example|sample|only)([^a-z0-9_]|$)/i;
 
 export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   draft: "Draft",
@@ -95,16 +91,6 @@ export const TASK_TYPE_COLOR: Record<TaskType, string> = {
 
 export function isAdminTaskType(t: string): boolean {
   return (ADMIN_TASK_TYPES as readonly string[]).includes(t);
-}
-
-export function shouldGateSoftOpenTask(input: {
-  title: string;
-  description: string;
-  category: string | null;
-}): boolean {
-  return [input.title, input.description, input.category ?? ""].some((value) =>
-    SOFT_OPEN_DEMO_TASK_RE.test(value),
-  );
 }
 
 export type DbTask = {

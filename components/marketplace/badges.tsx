@@ -2,7 +2,6 @@ import {
   BadgeCheck,
   CircleDollarSign,
   Handshake,
-  Hourglass,
   LockKeyhole,
   RotateCcw,
   Sparkles,
@@ -136,47 +135,4 @@ export function FutureBadge({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function EarlyContributorsOnlyBadge({
-  locale = DEFAULT_LOCALE,
-}: {
-  locale?: Locale;
-}) {
-  const t = createTranslator(locale);
 
-  return (
-    <Badge className="bg-[#f1d8ff]">
-      <LockKeyhole aria-hidden="true" className="h-3.5 w-3.5 text-[#7c3cff]" />
-      {t("early.contributorsOnly")}
-    </Badge>
-  );
-}
-
-export function AccessBadge({
-  variant = "preview",
-  locale = DEFAULT_LOCALE,
-}: {
-  variant?: "preview" | "early";
-  locale?: Locale;
-}) {
-  const t = createTranslator(locale);
-
-  if (variant === "preview") {
-    return (
-      <Badge className="bg-[#38e7ff]">
-        <Sparkles aria-hidden="true" className="h-3.5 w-3.5 text-[#7c3cff]" />
-        {t("common.preview")}
-      </Badge>
-    );
-  }
-
-  if (variant === "early") {
-    return (
-      <Badge className="bg-[#f1d8ff]">
-        <Hourglass aria-hidden="true" className="h-3.5 w-3.5 text-[#7c3cff]" />
-        {t("early.access")}
-      </Badge>
-    );
-  }
-
-  return null;
-}
