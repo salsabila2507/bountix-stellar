@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { normalizeReferralCode } from "@/lib/referrals";
-import { PrivyLoginSection } from "@/components/auth/privy-login-section";
+import { SignupForm } from "@/components/auth/signup-form";
 
 type SignupPageProps = {
   searchParams: Promise<{
@@ -33,7 +33,7 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
         </Link>
 
         <section className="mx-auto mt-10 max-w-md">
-          <PrivyLoginSection mode="signup" referralCode={referralCode} />
+          <SignupForm referralCode={referralCode} />
         </section>
       </div>
     </main>

@@ -6,9 +6,8 @@ import { ButtonLink } from "@/components/ui/button";
 import { createTranslator, type TranslationKey } from "@/lib/i18n";
 import { getRequestLocale } from "@/lib/i18n/server";
 import { getUnreadNotificationCount } from "@/lib/notifications";
-import { getSessionUser } from "@/lib/auth/session";
 import { LogoutButton } from "@/components/auth/logout-button";
-import { createAdminClient } from "@/utils/supabase/server";
+import { createClient } from "@/utils/supabase/server";
 
 type NavLink = {
   href: string;
@@ -42,26 +41,31 @@ function buildMenuLinks(): NavLink[] {
 }
 
 async function getCurrentUser() {
-  const sessionUser = await getSessionUser();
-  if (!sessionUser) return null;
   try {
-    const supabase = createAdminClient();
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
-      .eq("privy_did", sessionUser.id)
+      .select("role, username")
+      .eq("id", user.id)
       .maybeSingle();
-    return { id: sessionUser.id, isAdmin: profile?.role === "admin" };
+    return {
+      id: user.id,
+      username: profile?.username ?? null,
+      isAdmin: profile?.role === "admin",
+    };
   } catch {
-    return { id: sessionUser.id, isAdmin: false };
+    return null;
   }
 }
 
 function getDisplayHandle(
-  user: { id: string; isAdmin?: boolean } | null,
+  user: { id: string; username?: string | null; isAdmin?: boolean } | null,
   fallback: string,
 ) {
   if (!user) return fallback;
+  if (user.username) return `@${user.username}`;
   return user.id.length > 16 ? `${user.id.slice(0, 15)}…` : user.id;
 }
 

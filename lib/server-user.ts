@@ -1,42 +1,46 @@
-import { getPrivyUser } from "@/lib/auth/privy-server";
-import { getDefaultPrivyUsername } from "@/lib/auth/profile";
-import { createAdminClient } from "@/utils/supabase/server";
+import { createClient, createAdminClient } from "@/utils/supabase/server";
+import { createHash } from "node:crypto";
+
+function getDefaultUsername(userId: string) {
+  const suffix = createHash("sha256").update(userId).digest("hex").slice(0, 10);
+  return `user_${suffix}`;
+}
 
 export async function getServerUser() {
-  const supabase = createAdminClient();
-  const privyUser = await getPrivyUser();
-  if (privyUser) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id, username")
-      .eq("privy_did", privyUser.id)
-      .maybeSingle();
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
 
-    if (profile) {
-      if (!profile.username) {
-        await supabase
-          .from("profiles")
-          .update({ username: getDefaultPrivyUsername(privyUser.id) })
-          .eq("id", profile.id);
-      }
-      return { supabase, userId: profile.id };
+  const adminSupabase = createAdminClient();
+
+  const { data: profile } = await adminSupabase
+    .from("profiles")
+    .select("id, username")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profile) {
+    if (!profile.username) {
+      await adminSupabase
+        .from("profiles")
+        .update({ username: getDefaultUsername(user.id) })
+        .eq("id", profile.id);
     }
-
-    const { data: newProfile } = await supabase
-      .from("profiles")
-      .insert({
-        privy_did: privyUser.id,
-        username: getDefaultPrivyUsername(privyUser.id),
-      })
-      .select("id")
-      .single();
-
-    if (newProfile) {
-      return { supabase, userId: newProfile.id };
-    }
-
-    return { supabase, userId: privyUser.id };
+    return { supabase: adminSupabase, userId: profile.id };
   }
 
-  return null;
+  const { data: newProfile } = await adminSupabase
+    .from("profiles")
+    .insert({
+      id: user.id,
+      username: getDefaultUsername(user.id),
+    })
+    .select("id")
+    .single();
+
+  if (newProfile) {
+    return { supabase: adminSupabase, userId: newProfile.id };
+  }
+
+  return { supabase: adminSupabase, userId: user.id };
 }

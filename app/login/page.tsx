@@ -1,15 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { PrivyLoginSection } from "@/components/auth/privy-login-section";
-
-type LoginPageProps = {
-  searchParams: Promise<{
-    auth_error?: string | string[];
-    privy_oauth_code?: string | string[];
-    privy_oauth_provider?: string | string[];
-    privy_oauth_state?: string | string[];
-  }>;
-};
+import { LoginForm } from "@/components/auth/login-form";
 
 export const dynamic = "force-dynamic";
 
@@ -18,16 +9,7 @@ export const metadata = {
   description: "Log in to your Bountix account.",
 };
 
-export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const params = await searchParams;
-  const authError = Array.isArray(params.auth_error)
-    ? params.auth_error[0]
-    : params.auth_error;
-  const hasPrivyOAuthParams =
-    Boolean(params.privy_oauth_code) ||
-    Boolean(params.privy_oauth_provider) ||
-    Boolean(params.privy_oauth_state);
-
+export default function LoginPage() {
   return (
     <main className="comic-page min-h-screen overflow-hidden text-[#140625]">
       <div className="container-page py-8 sm:py-10">
@@ -40,7 +22,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </Link>
 
         <section className="mx-auto mt-10 max-w-md">
-          <PrivyLoginSection authError={Boolean(authError) && !hasPrivyOAuthParams} />
+          <LoginForm />
         </section>
       </div>
     </main>

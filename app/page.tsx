@@ -19,7 +19,7 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { TaskCarousel } from "@/components/landing/task-carousel";
 import { createTranslator, type TranslationKey } from "@/lib/i18n";
 import { getRequestLocale } from "@/lib/i18n/server";
-import { getSessionUser } from "@/lib/auth/session";
+import { createClient } from "@/utils/supabase/server";
 
 const assetBase = "/bountix-comic/bountix_assets_ready";
 const telegramGroupUrl = "https://t.me/+V78fuYlQNvcxYTNl";
@@ -202,7 +202,9 @@ const stats = [
 
 async function getCurrentUser() {
   try {
-    return await getSessionUser();
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    return user ? { id: user.id } : null;
   } catch {
     return null;
   }
