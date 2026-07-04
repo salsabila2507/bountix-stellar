@@ -191,7 +191,12 @@ export async function invokeSorobanWithKeypair(
 
   const simulation = await server.simulateTransaction(tx);
   if (rpc.Api.isSimulationError(simulation)) {
-    throw new Error(`Soroban simulation error: ${simulation.error}`);
+    const events = simulation.events
+      ? JSON.stringify(simulation.events).substring(0, 1500)
+      : "(no events)";
+    throw new Error(
+      `Soroban simulation error: ${simulation.error}\nEvents: ${events}`,
+    );
   }
 
   const preparedTx = rpc.assembleTransaction(tx, simulation).build();
