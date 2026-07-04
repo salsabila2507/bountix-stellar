@@ -218,9 +218,12 @@ export default function WalletDashboard() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <Link href="/wallet/send" className="comic-card p-6 text-center bg-[#ffdd3d] hover:-translate-y-0.5 transition">
           <h3 className="text-sm font-black text-[#140625]">Send</h3>
+        </Link>
+        <Link href="/wallet/swap" className="comic-card p-6 text-center bg-[#ff4fb8] hover:-translate-y-0.5 transition">
+          <h3 className="text-sm font-black text-white">Swap</h3>
         </Link>
         <Link href="/wallet/contacts" className="comic-card p-6 text-center bg-[#38e7ff] hover:-translate-y-0.5 transition">
           <h3 className="text-sm font-black text-[#140625]">Contacts</h3>
