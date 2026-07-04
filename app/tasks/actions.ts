@@ -285,7 +285,11 @@ export async function createTaskAction(
   revalidatePath("/dashboard/tasks");
 
   if (inserted?.id) {
-    redirect(`/tasks/${inserted.id}`);
+    return {
+      status: "success",
+      message: "Task created.",
+      taskId: inserted.id,
+    };
   }
 
   return { status: "success", message: "Task created." };

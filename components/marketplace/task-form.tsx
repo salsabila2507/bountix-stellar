@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
   CheckCircle2,
@@ -56,6 +57,7 @@ export function TaskForm({
       ? updateTaskAction.bind(null, initialTask.id)
       : createTaskAction;
 
+  const router = useRouter();
   const [state, setState] =
     useState<TaskFormState>(initialTaskFormState);
   const [isPending, startTransition] = useTransition();
@@ -65,7 +67,11 @@ export function TaskForm({
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
       const result = await boundAction(state, formData);
-      if (result) setState(result);
+      if (result?.status === "success" && result.taskId) {
+        router.push(`/tasks/${result.taskId}`);
+      } else if (result) {
+        setState(result);
+      }
     });
   }
 

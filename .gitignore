@@ -21,3 +21,4 @@ typechain-types
 # Rust/Soroban build artifacts
 contracts/*/target/
 .env*
+*.html
