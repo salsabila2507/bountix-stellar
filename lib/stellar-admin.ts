@@ -75,7 +75,17 @@ export async function adminInvoke(
 
   const simulation = await server.simulateTransaction(tx);
   if (rpc.Api.isSimulationError(simulation)) {
-    throw new Error(`Soroban simulation error: ${simulation.error}`);
+    const events = simulation.events
+      ? simulation.events
+          .map(
+            (e: { type: string; topics: string[]; data: string }) =>
+              `[${e.type}] topics:[${(e.topics || []).join(", ")}] data:${JSON.stringify(e.data)}`,
+          )
+          .join("\n")
+      : "(no events)";
+    throw new Error(
+      `Soroban simulation error: ${simulation.error}\nEvents:\n${events}`,
+    );
   }
 
   const preparedTx = rpc.assembleTransaction(tx, simulation).build();
