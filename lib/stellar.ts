@@ -7,6 +7,7 @@ import {
   TransactionBuilder,
   BASE_FEE,
   Networks,
+  Horizon,
   rpc,
   Operation,
   nativeToScVal,
@@ -15,6 +16,7 @@ import {
   Keypair,
 } from "@stellar/stellar-sdk";
 import { ESCROW_CONTRACT_ADDRESS } from "./escrow";
+import { friendbotFund as fbFund } from "./stellar/horizon";
 
 const SOROBAN_RPC_URL =
   process.env.NEXT_PUBLIC_SOROBAN_RPC_URL ??
@@ -310,4 +312,77 @@ export async function getSorobanTokenBalance(
     // network error or auth issue
   }
   return 0n;
+}
+
+/**
+ * Like getSorobanTokenBalance but cached in sessionStorage.
+ * Cache TTL = 60 seconds. Pass `bust: true` to force a fresh fetch.
+ */
+const CACHE_PREFIX = "bountix:token-balance";
+const CACHE_TTL_MS = 60_000;
+
+export async function getCachedSorobanTokenBalance(
+  tokenContract: string,
+  address: string,
+  bust = false,
+): Promise<bigint> {
+  if (typeof window !== "undefined") {
+    const key = `${CACHE_PREFIX}:${tokenContract}:${address}`;
+    try {
+      const raw = sessionStorage.getItem(key);
+      if (raw && !bust) {
+        const parsed = JSON.parse(raw) as { balance: string; ts: number };
+        if (Date.now() - parsed.ts < CACHE_TTL_MS) {
+          return BigInt(parsed.balance);
+        }
+      }
+    } catch {
+      // sessionStorage unavailable / parse error → fall through
+    }
+  }
+
+  const balance = await getSorobanTokenBalance(tokenContract, address);
+
+  if (typeof window !== "undefined") {
+    const key = `${CACHE_PREFIX}:${tokenContract}:${address}`;
+    try {
+      sessionStorage.setItem(
+        key,
+        JSON.stringify({ balance: balance.toString(), ts: Date.now() }),
+      );
+    } catch {
+      // quota exceeded / unavailable → silently ignore
+    }
+  }
+
+  return balance;
+}
+
+/**
+ * Trigger friendbot to fund an account with testnet XLM.
+ * No-op if account already has a balance.
+ */
+export async function ensureTestnetXlm(
+  publicKey: string,
+  minXlm = 1,
+): Promise<void> {
+  try {
+    const horizon = new Horizon.Server(
+      "https://horizon-testnet.stellar.org",
+    );
+    let acc;
+    try {
+      acc = await horizon.loadAccount(publicKey);
+    } catch {
+      // account doesn't exist on testnet → fund it
+      acc = null;
+    }
+    if (acc) {
+      const native = acc.balances.find((b) => b.asset_type === "native");
+      if (native && parseFloat(native.balance) >= minXlm) return;
+    }
+    await fbFund(publicKey);
+  } catch {
+    // friendbot may rate-limit; ignore
+  }
 }

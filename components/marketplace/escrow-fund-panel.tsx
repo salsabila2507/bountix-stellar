@@ -27,8 +27,9 @@ import { markTaskEscrowFundedAction } from "@/app/tasks/actions";
 import { useWallet, useSecretKey } from "@/lib/stellar/wallet-context";
 import { hasWallet as walletExists } from "@/lib/stellar/wallet-store";
 import {
+  ensureTestnetXlm,
   escrowExistsOnChain,
-  getSorobanTokenBalance,
+  getCachedSorobanTokenBalance,
   invokeSorobanWithKeypair,
 } from "@/lib/stellar";
 import { ConfirmationModal } from "@/components/wallet/confirmation-modal";
@@ -68,7 +69,6 @@ export function EscrowFundPanel({
     isLoaded,
     isLocked,
     publicKey,
-    account,
     refreshAccount,
   } = useWallet();
   const { requestUnlock, clearKey } = useSecretKey();
@@ -90,7 +90,7 @@ export function EscrowFundPanel({
     usdcToUnits(rewardAmount) * BigInt(safeWinnerCount);
   const tokenAddress = TOKEN_ADDRESSES[paymentToken];
 
-  // Preflight: load USDC balance when wallet + token are known
+  // Preflight: friendbot XLM if needed, then refresh USDC balance
   useEffect(() => {
     if (!publicKey || !tokenAddress) {
       setUsdcBalance(null);
@@ -98,20 +98,31 @@ export function EscrowFundPanel({
     }
     let cancelled = false;
     setBalanceLoading(true);
-    getSorobanTokenBalance(tokenAddress, publicKey)
-      .then((bal) => {
+
+    (async () => {
+      // 1. Make sure wallet has at least 1 XLM (friendbot if not)
+      if (!isLocked) {
+        await ensureTestnetXlm(publicKey);
+        if (!cancelled) await refreshAccount();
+      }
+      // 2. Fetch USDC balance (cached 60s)
+      try {
+        const bal = await getCachedSorobanTokenBalance(
+          tokenAddress,
+          publicKey,
+        );
         if (!cancelled) setUsdcBalance(bal);
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) setUsdcBalance(0n);
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setBalanceLoading(false);
-      });
+      }
+    })();
+
     return () => {
       cancelled = true;
     };
-  }, [publicKey, tokenAddress]);
+  }, [publicKey, tokenAddress, isLocked, refreshAccount]);
 
   const displayAmount =
     rewardMode === "raffle"
@@ -148,19 +159,6 @@ export function EscrowFundPanel({
         )}. Top up at /wallet first.`,
       );
       return;
-    }
-    if (account) {
-      const xlmBalance = parseFloat(
-        account.balances.find((b) => b.asset_type === "native")
-          ?.balance ?? "0",
-      );
-      if (!Number.isFinite(xlmBalance) || xlmBalance < 1) {
-        setPhase("error");
-        setError(
-          "You need at least 1 XLM in your wallet to pay transaction fees. Friendbot your wallet address first.",
-        );
-        return;
-      }
     }
     setShowConfirm(true);
   }
@@ -205,6 +203,11 @@ export function EscrowFundPanel({
       setPhase("done");
       clearKey();
       setShowConfirm(false);
+      // Bust the balance cache so a re-render shows the new USDC balance
+      try {
+        const cacheKey = `bountix:token-balance:${tokenAddress}:${userPk}`;
+        sessionStorage.removeItem(cacheKey);
+      } catch {}
       refreshAccount();
       router.refresh();
     } catch (err) {
@@ -297,12 +300,14 @@ export function EscrowFundPanel({
         </p>
       ) : null}
 
-      {usdcBalance !== null ? (
+      {usdcBalance !== null || balanceLoading ? (
         <p className="mt-1 text-xs font-bold text-[#5a3b66]">
           {paymentToken} balance:{" "}
-          {balanceLoading
-            ? "loading…"
-            : `${(Number(usdcBalance) / 1e7).toFixed(7)} ${paymentToken}`}
+          {balanceLoading ? (
+            <span className="inline-block h-3 w-20 animate-pulse rounded bg-[#5a3b66]/30 align-middle" />
+          ) : (
+            `${(Number(usdcBalance ?? 0n) / 1e7).toFixed(7)} ${paymentToken}`
+          )}
         </p>
       ) : null}
 
