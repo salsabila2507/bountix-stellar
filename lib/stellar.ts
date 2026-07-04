@@ -6,11 +6,13 @@ import freighterApi from "@stellar/freighter-api";
 import {
   TransactionBuilder,
   BASE_FEE,
+  Networks,
   rpc,
   Operation,
   nativeToScVal,
   xdr,
   Address,
+  Keypair,
 } from "@stellar/stellar-sdk";
 import { ESCROW_CONTRACT_ADDRESS } from "./escrow";
 
@@ -155,6 +157,62 @@ export async function invokeSoroban(
 }
 
 /**
+ * Build, sign with a user Keypair, and submit a Soroban contract invocation.
+ * The user's address is used as the source account (pays fees & escrow).
+ */
+export async function invokeSorobanWithKeypair(
+  functionName: string,
+  args: unknown[],
+  kp: Keypair,
+): Promise<string> {
+  if (!ESCROW_CONTRACT_ADDRESS) {
+    throw new Error("ESCROW_CONTRACT_ADDRESS not set");
+  }
+
+  const networkPassphrase = Networks.TESTNET;
+  const server = new rpc.Server(SOROBAN_RPC_URL);
+  const sourceAccount = await server.getAccount(kp.publicKey());
+
+  const tx = new TransactionBuilder(sourceAccount, {
+    fee: BASE_FEE,
+    networkPassphrase,
+  })
+    .addOperation(
+      Operation.invokeContractFunction({
+        contract: ESCROW_CONTRACT_ADDRESS,
+        function: functionName,
+        args: args.map((a) => toScVal(a)),
+      }),
+    )
+    .setTimeout(30)
+    .build();
+
+  const simulation = await server.simulateTransaction(tx);
+  if (rpc.Api.isSimulationError(simulation)) {
+    throw new Error(`Soroban simulation error: ${simulation.error}`);
+  }
+
+  const preparedTx = rpc.assembleTransaction(tx, simulation).build();
+  preparedTx.sign(kp);
+
+  const result = await server.sendTransaction(preparedTx);
+
+  if (result.status !== "PENDING" && result.status !== "DUPLICATE") {
+    throw new Error(`Soroban send error: ${result.status}`);
+  }
+
+  for (let i = 0; i < 30; i++) {
+    await new Promise((r) => setTimeout(r, 1000));
+    const receipt = await server.getTransaction(result.hash);
+    if (receipt.status === "SUCCESS") return result.hash;
+    if (receipt.status === "FAILED") {
+      throw new Error("Soroban transaction failed");
+    }
+  }
+  throw new Error("Soroban transaction timed out");
+}
+
+/**
  * Serialize args for admin API — bigint → string, rest passes as-is.
  */
 function serializeForAdmin(args: unknown[]): unknown[] {
@@ -204,4 +262,52 @@ export async function escrowExistsOnChain(
   if (!res.ok) return false;
   const data = await res.json();
   return data.exists === true;
+}
+
+/**
+ * Query a SEP-41 token contract's `balance(address)` function.
+ * Returns balance in base units (e.g. 70000000 = 7 USDC).
+ * Returns 0n if the simulation fails (no trustline or no balance).
+ */
+export async function getSorobanTokenBalance(
+  tokenContract: string,
+  address: string,
+): Promise<bigint> {
+  try {
+    const server = new rpc.Server(SOROBAN_RPC_URL);
+    const kp = Keypair.random();
+    let sourceAccount: rpc.Server.Account;
+    try {
+      sourceAccount = await server.getAccount(kp.publicKey());
+    } catch {
+      await fetch(`https://friendbot.stellar.org?addr=${kp.publicKey()}`).then(
+        (r) => r.json(),
+      );
+      sourceAccount = await server.getAccount(kp.publicKey());
+    }
+
+    const tx = new TransactionBuilder(sourceAccount, {
+      fee: BASE_FEE,
+      networkPassphrase: Networks.TESTNET,
+    })
+      .addOperation(
+        Operation.invokeContractFunction({
+          contract: tokenContract,
+          function: "balance",
+          args: [Address.fromString(address).toScVal()],
+        }),
+      )
+      .setTimeout(30)
+      .build();
+
+    const sim = await server.simulateTransaction(tx);
+    if (rpc.Api.isSimulationSuccess(sim) && sim.result?.retval) {
+      const raw = JSON.stringify(sim.result.retval);
+      const match = raw.match(/"lo":\{"_value":"(\d+)"\}/);
+      if (match) return BigInt(match[1]);
+    }
+  } catch {
+    // network error or auth issue
+  }
+  return 0n;
 }

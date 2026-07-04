@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Keypair } from "@stellar/stellar-sdk";
 import {
   CheckCircle2,
   ExternalLink,
   LoaderCircle,
   LockKeyhole,
   TriangleAlert,
+  Wallet,
 } from "lucide-react";
 import {
   stellarTxUrl,
@@ -15,15 +18,26 @@ import {
   uuidToBytes32,
   escrowContractDeployed,
 } from "@/lib/escrow";
-import { formatUsdc, TOKEN_ADDRESSES, type PaymentToken } from "@/lib/payments";
+import {
+  formatUsdc,
+  TOKEN_ADDRESSES,
+  type PaymentToken,
+} from "@/lib/payments";
 import { markTaskEscrowFundedAction } from "@/app/tasks/actions";
+import { useWallet, useSecretKey } from "@/lib/stellar/wallet-context";
+import { hasWallet as walletExists } from "@/lib/stellar/wallet-store";
+import {
+  escrowExistsOnChain,
+  getSorobanTokenBalance,
+  invokeSorobanWithKeypair,
+} from "@/lib/stellar";
+import { ConfirmationModal } from "@/components/wallet/confirmation-modal";
 import {
   DEFAULT_LOCALE,
   createTranslator,
   type Locale,
 } from "@/lib/i18n";
 import type { RewardMode } from "@/lib/tasks";
-import { invokeSorobanAdmin, escrowExistsOnChain } from "@/lib/stellar";
 
 type Phase =
   | "idle"
@@ -49,47 +63,137 @@ export function EscrowFundPanel({
 }) {
   const t = createTranslator(locale);
   const router = useRouter();
+
+  const {
+    isLoaded,
+    isLocked,
+    publicKey,
+    account,
+    refreshAccount,
+  } = useWallet();
+  const { requestUnlock, clearKey } = useSecretKey();
+
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string>("");
   const [txHash, setTxHash] = useState<string>("");
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [usdcBalance, setUsdcBalance] = useState<bigint | null>(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
 
-  const busy =
-    phase === "funding" ||
-    phase === "recording";
+  const safeWinnerCount =
+    rewardMode === "raffle" && Number.isInteger(winnerCount)
+      ? Math.max(1, winnerCount)
+      : 1;
+  const requiredAmount =
+    usdcToUnits(rewardAmount) * BigInt(safeWinnerCount);
+  const tokenAddress = TOKEN_ADDRESSES[paymentToken];
 
-  async function handleFund() {
-    setError("");
-
-    if (!escrowContractDeployed()) {
-      setPhase("error");
-      setError(t("escrow.fund.notDeployed") || "Escrow contract not yet deployed on Stellar");
+  // Preflight: load USDC balance when wallet + token are known
+  useEffect(() => {
+    if (!publicKey || !tokenAddress) {
+      setUsdcBalance(null);
       return;
     }
+    let cancelled = false;
+    setBalanceLoading(true);
+    getSorobanTokenBalance(tokenAddress, publicKey)
+      .then((bal) => {
+        if (!cancelled) setUsdcBalance(bal);
+      })
+      .catch(() => {
+        if (!cancelled) setUsdcBalance(0n);
+      })
+      .finally(() => {
+        if (!cancelled) setBalanceLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [publicKey, tokenAddress]);
 
-    const safeWinnerCount =
-      rewardMode === "raffle" && Number.isInteger(winnerCount)
-        ? Math.max(1, winnerCount)
-        : 1;
-    const amount = usdcToUnits(rewardAmount) * BigInt(safeWinnerCount);
-    if (amount <= BigInt(0)) {
+  const displayAmount =
+    rewardMode === "raffle"
+      ? rewardAmount * Math.max(1, winnerCount)
+      : rewardAmount;
+
+  const amountLabel = formatUsdc(displayAmount, paymentToken);
+
+  function handleFundClick() {
+    setError("");
+    if (!escrowContractDeployed()) {
+      setPhase("error");
+      setError(
+        t("escrow.fund.notDeployed") ||
+          "Escrow contract not yet deployed on Stellar",
+      );
+      return;
+    }
+    if (requiredAmount <= BigInt(0)) {
       setPhase("error");
       setError(t("escrow.fund.positiveAmount"));
       return;
     }
+    if (
+      usdcBalance !== null &&
+      usdcBalance < requiredAmount &&
+      !balanceLoading
+    ) {
+      setPhase("error");
+      setError(
+        `Your wallet doesn't have enough ${paymentToken}. Balance: ${formatUsdc(
+          Number(usdcBalance) / 1e7,
+          paymentToken,
+        )}. Top up at /wallet first.`,
+      );
+      return;
+    }
+    if (account) {
+      const xlmBalance = parseFloat(
+        account.balances.find((b) => b.asset_type === "native")
+          ?.balance ?? "0",
+      );
+      if (!Number.isFinite(xlmBalance) || xlmBalance < 1) {
+        setPhase("error");
+        setError(
+          "You need at least 1 XLM in your wallet to pay transaction fees. Friendbot your wallet address first.",
+        );
+        return;
+      }
+    }
+    setShowConfirm(true);
+  }
 
+  async function handleConfirm(pincode: string) {
+    setConfirmError(null);
+    setError("");
+    setSubmitting(true);
     try {
+      const wallet = await requestUnlock(pincode);
+      const userPk = publicKey ?? wallet.publicKey;
+      if (!userPk) throw new Error("Wallet not loaded after unlock");
+
       const taskKey = uuidToBytes32(taskId);
 
-      // Check if escrow already exists on-chain
       const alreadyFunded = await escrowExistsOnChain(taskKey);
       let hash: string;
+
       if (alreadyFunded) {
         hash = "on-chain-verified";
       } else {
         setPhase("funding");
-        hash = await invokeSorobanAdmin(
+        const args = [
+          userPk,
+          taskKey,
+          requiredAmount,
+          tokenAddress,
+        ];
+        const kp = Keypair.fromSecret(wallet.secretKey);
+        hash = await invokeSorobanWithKeypair(
           rewardMode === "raffle" ? "fund_raffle_escrow" : "fund_escrow",
-          [taskKey, amount, TOKEN_ADDRESSES[paymentToken]],
+          args,
+          kp,
         );
       }
       setTxHash(hash);
@@ -99,19 +203,20 @@ export function EscrowFundPanel({
       if (!result.ok) throw new Error(result.message);
 
       setPhase("done");
+      clearKey();
+      setShowConfirm(false);
+      refreshAccount();
       router.refresh();
     } catch (err) {
-      setPhase("error");
       const message =
         err instanceof Error ? err.message : t("escrow.fund.failed");
       setError(message.slice(0, 2000));
+      setConfirmError(message.slice(0, 500));
+      setPhase("error");
+    } finally {
+      setSubmitting(false);
     }
   }
-
-  const displayAmount =
-    rewardMode === "raffle"
-      ? rewardAmount * Math.max(1, winnerCount)
-      : rewardAmount;
 
   if (phase === "done") {
     return (
@@ -141,6 +246,38 @@ export function EscrowFundPanel({
     );
   }
 
+  // State: no wallet saved yet → CTA to create one
+  if (isLoaded && !walletExists()) {
+    return (
+      <div className="comic-card-soft bg-[#f2e6ff] p-5">
+        <p className="comic-chip bg-[#7c3cff] text-white">
+          <Wallet aria-hidden="true" className="h-3.5 w-3.5" />
+          {t("escrow.fund.chip")}
+        </p>
+        <h2 className="mt-4 text-lg font-black text-[#140625]">
+          {t("escrow.fund.title")}
+        </h2>
+        <p className="mt-2 text-sm font-semibold leading-6 text-[#3c214b]">
+          {t("escrow.fund.body", { amount: amountLabel })}
+        </p>
+        <p className="mt-3 text-sm font-semibold text-[#3c214b]">
+          You need a Bountix Stellar wallet before you can fund this
+          escrow. Create one in your wallet page.
+        </p>
+        <Link
+          href="/wallet/signup"
+          className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border-2 border-[#140625] bg-[#38e7ff] px-5 py-3 text-sm font-black uppercase text-[#140625] shadow-[5px_5px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#ffdd3d]"
+        >
+          Create Bountix wallet
+        </Link>
+      </div>
+    );
+  }
+
+  // State: wallet exists but locked OR insufficient balance → show warning + unlock/fund UI
+  const showInsufficientBalance =
+    usdcBalance !== null && usdcBalance < requiredAmount;
+
   return (
     <div className="comic-card-soft bg-[#f2e6ff] p-5">
       <p className="comic-chip bg-[#7c3cff] text-white">
@@ -151,38 +288,120 @@ export function EscrowFundPanel({
         {t("escrow.fund.title")}
       </h2>
       <p className="mt-2 text-sm font-semibold leading-6 text-[#3c214b]">
-        {t("escrow.fund.body", { amount: formatUsdc(displayAmount, paymentToken) })}
+        {t("escrow.fund.body", { amount: amountLabel })}
       </p>
+
+      {isLoaded && publicKey ? (
+        <p className="mt-2 break-all text-xs font-mono font-bold text-[#5a3b66]">
+          Funding from: {publicKey}
+        </p>
+      ) : null}
+
+      {usdcBalance !== null ? (
+        <p className="mt-1 text-xs font-bold text-[#5a3b66]">
+          {paymentToken} balance:{" "}
+          {balanceLoading
+            ? "loading…"
+            : `${(Number(usdcBalance) / 1e7).toFixed(7)} ${paymentToken}`}
+        </p>
+      ) : null}
 
       {phase === "error" && error ? (
         <div className="mt-4 flex gap-2 rounded-lg border-2 border-[#140625] bg-[#ffe1ed] p-3 text-sm font-bold text-[#8a1742]">
-          <TriangleAlert aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+          <TriangleAlert
+            aria-hidden="true"
+            className="mt-0.5 h-4 w-4 shrink-0"
+          />
           <p className="break-words">{error}</p>
+        </div>
+      ) : null}
+
+      {showInsufficientBalance ? (
+        <div className="mt-3 rounded-lg border-2 border-[#140625] bg-[#fff0f5] p-3 text-xs font-bold text-[#140625]">
+          Your wallet balance ({paymentToken}) is below the required
+          escrow amount. Top up at{" "}
+          <Link
+            href="/wallet"
+            className="underline"
+          >
+            /wallet
+          </Link>{" "}
+          (use "Get 100 Testnet USDC") before funding.
         </div>
       ) : null}
 
       <button
         type="button"
-        onClick={handleFund}
-        disabled={busy}
+        onClick={handleFundClick}
+        disabled={
+          submitting ||
+          showInsufficientBalance ||
+          balanceLoading
+        }
         className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border-2 border-[#140625] bg-[#ff4fb8] px-5 py-3 text-sm font-black uppercase text-white shadow-[5px_5px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#7c3cff] disabled:cursor-not-allowed disabled:bg-[#c9c0d3] disabled:text-[#5a3b66]"
       >
-        {busy ? (
+        {submitting ? (
           <>
-            <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" />
+            <LoaderCircle
+              aria-hidden="true"
+              className="h-4 w-4 animate-spin"
+            />
             {phase === "funding"
               ? t("escrow.fund.funding")
               : t("escrow.fund.recording")}
           </>
         ) : (
-          <>
-            {t("escrow.fund.button")}
-          </>
+          <>{t("escrow.fund.button")}</>
         )}
       </button>
       <p className="mt-3 text-xs font-bold text-[#5a3b66]">
         {t("escrow.fund.prompts")}
       </p>
+
+      <ConfirmationModal
+        open={showConfirm}
+        title={`Fund ${amountLabel} from your wallet`}
+        onConfirm={handleConfirm}
+        onCancel={() => {
+          if (submitting) return;
+          setShowConfirm(false);
+          setConfirmError(null);
+        }}
+        loading={submitting}
+        error={confirmError}
+      >
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-[#5a3b66]">Task</span>
+            <span className="font-mono text-xs text-[#140625]">
+              {taskId.slice(0, 8)}…
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-[#5a3b66]">Amount</span>
+            <span className="font-black text-[#140625]">
+              {amountLabel}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-[#5a3b66]">Token</span>
+            <span className="font-black text-[#140625]">
+              {paymentToken}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-[#5a3b66]">Your wallet</span>
+            <span className="font-mono text-xs text-[#140625] truncate max-w-[200px]">
+              {publicKey}
+            </span>
+          </div>
+          <p className="mt-3 text-xs font-bold text-[#5a3b66]">
+            You are paying {amountLabel} from your Bountix Stellar
+            wallet into the escrow contract. Your wallet&apos;s secret
+            key stays in this browser.
+          </p>
+        </div>
+      </ConfirmationModal>
     </div>
   );
 }
