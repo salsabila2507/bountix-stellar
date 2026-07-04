@@ -42,6 +42,50 @@ function toScVal(value: unknown): xdr.ScVal {
   return nativeToScVal(value as never);
 }
 
+/**
+ * Simulate a read-only contract call. Returns true if the simulation
+ * succeeds (i.e. the data exists), false if it reverts.
+ */
+export async function adminQuery(
+  functionName: string,
+  args: unknown[],
+): Promise<boolean> {
+  if (!ESCROW_CONTRACT_ADDRESS)
+    throw new Error("ESCROW_CONTRACT_ADDRESS not set");
+
+  const server = new rpc.Server(SOROBAN_RPC_URL);
+  const kp = Keypair.random();
+  let sourceAccount: rpc.Server.Account;
+  try {
+    sourceAccount = await server.getAccount(kp.publicKey());
+  } catch {
+    await fetch(
+      `https://friendbot.stellar.org?addr=${kp.publicKey()}`,
+    ).then((r) => r.json());
+    sourceAccount = await server.getAccount(kp.publicKey());
+  }
+
+  const tx = new TransactionBuilder(sourceAccount, {
+    fee: BASE_FEE,
+    networkPassphrase: Networks.TESTNET,
+  })
+    .addOperation(
+      Operation.invokeContractFunction({
+        contract: ESCROW_CONTRACT_ADDRESS,
+        function: functionName,
+        args: args.map((a) => toScVal(a)),
+      }),
+    )
+    .setTimeout(30)
+    .build();
+
+  const simulation = await server.simulateTransaction(tx);
+  if (rpc.Api.isSimulationError(simulation)) {
+    return false;
+  }
+  return true;
+}
+
 export async function adminInvoke(
   functionName: string,
   args: unknown[],

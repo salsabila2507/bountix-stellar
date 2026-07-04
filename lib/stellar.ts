@@ -184,3 +184,24 @@ export async function invokeSorobanAdmin(
   const { txHash } = await res.json();
   return txHash;
 }
+
+/**
+ * Check if an escrow exists on-chain for the given task key.
+ * Returns true if get_escrow succeeds, false if it reverts.
+ */
+export async function escrowExistsOnChain(
+  taskKey: { __bytes: string },
+): Promise<boolean> {
+  const res = await fetch("/api/soroban/admin-invoke", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      _query: true,
+      functionName: "get_escrow",
+      args: [taskKey],
+    }),
+  });
+  if (!res.ok) return false;
+  const data = await res.json();
+  return data.exists === true;
+}

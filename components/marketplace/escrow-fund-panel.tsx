@@ -23,7 +23,7 @@ import {
   type Locale,
 } from "@/lib/i18n";
 import type { RewardMode } from "@/lib/tasks";
-import { invokeSorobanAdmin } from "@/lib/stellar";
+import { invokeSorobanAdmin, escrowExistsOnChain } from "@/lib/stellar";
 
 type Phase =
   | "idle"
@@ -80,24 +80,17 @@ export function EscrowFundPanel({
     try {
       const taskKey = uuidToBytes32(taskId);
 
-      setPhase("funding");
-      let hash;
-      try {
+      // Check if escrow already exists on-chain
+      const alreadyFunded = await escrowExistsOnChain(taskKey);
+      let hash: string;
+      if (alreadyFunded) {
+        hash = "on-chain-verified";
+      } else {
+        setPhase("funding");
         hash = await invokeSorobanAdmin(
           rewardMode === "raffle" ? "fund_raffle_escrow" : "fund_escrow",
           [taskKey, amount, TOKEN_ADDRESSES[paymentToken]],
         );
-      } catch (fundErr) {
-        const msg = fundErr instanceof Error ? fundErr.message : "";
-        if (
-          msg.includes("escrow already exists") ||
-          msg.includes("already exists")
-        ) {
-          // Escrow already funded on-chain — skip fund, just record
-          hash = "on-chain-verified";
-        } else {
-          throw fundErr;
-        }
       }
       setTxHash(hash);
 
