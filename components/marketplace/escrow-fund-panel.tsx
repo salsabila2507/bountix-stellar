@@ -113,7 +113,7 @@ export function EscrowFundPanel({
         );
         if (!cancelled) setUsdcBalance(bal);
       } catch {
-        if (!cancelled) setUsdcBalance(0n);
+        if (!cancelled) setUsdcBalance(BigInt(0));
       } finally {
         if (!cancelled) setBalanceLoading(false);
       }
@@ -306,7 +306,7 @@ export function EscrowFundPanel({
           {balanceLoading ? (
             <span className="inline-block h-3 w-20 animate-pulse rounded bg-[#5a3b66]/30 align-middle" />
           ) : (
-            `${(Number(usdcBalance ?? 0n) / 1e7).toFixed(7)} ${paymentToken}`
+            `${(Number(usdcBalance ?? BigInt(0)) / 1e7).toFixed(7)} ${paymentToken}`
           )}
         </p>
       ) : null}

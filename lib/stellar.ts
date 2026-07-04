@@ -311,7 +311,7 @@ export async function getSorobanTokenBalance(
   } catch {
     // network error or auth issue
   }
-  return 0n;
+  return BigInt(0);
 }
 
 /**
