@@ -54,6 +54,9 @@ export async function adminInvoke(
   const server = new rpc.Server(SOROBAN_RPC_URL);
   const sourceAccount = await server.getAccount(kp.publicKey());
 
+  // Log args for debugging
+  console.log("adminInvoke", functionName, JSON.stringify(args));
+
   // Prepend deployer address as payer for fund functions
   const fundArgs = functionName.startsWith("fund_")
     ? [kp.publicKey(), ...args]
@@ -78,8 +81,9 @@ export async function adminInvoke(
     const events = simulation.events
       ? JSON.stringify(simulation.events)
       : "(no events)";
+    const argsSummary = JSON.stringify(fundArgs).substring(0, 800);
     throw new Error(
-      `Soroban simulation error: ${simulation.error}\nEvents:\n${events}`,
+      `Soroban simulation error: ${simulation.error}\nFundArgs: ${argsSummary}\nEvents:\n${events}`,
     );
   }
 

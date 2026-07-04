@@ -97,7 +97,7 @@ export function EscrowFundPanel({
       setPhase("error");
       const message =
         err instanceof Error ? err.message : t("escrow.fund.failed");
-      setError(message.slice(0, 500));
+      setError(message.slice(0, 2000));
     }
   }
 

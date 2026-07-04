@@ -106,7 +106,7 @@ export function EscrowReleasePanel({
       setPhase("error");
       const message =
         err instanceof Error ? err.message : t("escrow.release.failed");
-      setError(message.slice(0, 500));
+      setError(message.slice(0, 2000));
     }
   }
 
@@ -300,7 +300,7 @@ export function EscrowRaffleReleasePanel({
       setPhase("error");
       const message =
         err instanceof Error ? err.message : t("escrow.release.failed");
-      setError(message.slice(0, 500));
+      setError(message.slice(0, 2000));
     }
   }
 
