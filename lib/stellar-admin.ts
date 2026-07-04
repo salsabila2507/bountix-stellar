@@ -55,7 +55,7 @@ export async function adminQuery(
 
   const server = new rpc.Server(SOROBAN_RPC_URL);
   const kp = Keypair.random();
-  let sourceAccount: rpc.Server.Account;
+  let sourceAccount;
   try {
     sourceAccount = await server.getAccount(kp.publicKey());
   } catch {
