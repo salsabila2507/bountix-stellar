@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { revalidatePath } from "next/cache";
 
 interface Props {
   applicationId: string;
