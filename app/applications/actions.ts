@@ -74,7 +74,7 @@ export async function applyToTaskAction(
   const { error } = await supabase.from("task_applications").insert({
     task_id: taskId,
     applicant_id: user.id,
-    message: message || null,
+    proposal: message || null,
     status: "pending",
   });
 
