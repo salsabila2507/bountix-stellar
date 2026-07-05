@@ -117,6 +117,35 @@ export async function createAndStoreWallet(pincode: string): Promise<WalletAccou
   return { publicKey, secretKey }
 }
 
+/**
+ * Import a raw Stellar secret key (S...) and encrypt it with the given
+ * pincode. Throws if the secret is invalid or a wallet already exists.
+ */
+export async function importAndStoreWallet(
+  secretKey: string,
+  pincode: string,
+): Promise<WalletAccount> {
+  const trimmed = secretKey.trim()
+  if (!trimmed.startsWith("S") || trimmed.length < 50) {
+    throw new Error("That doesn't look like a Stellar secret key (should start with 'S').")
+  }
+  let kp: Keypair
+  try {
+    kp = Keypair.fromSecret(trimmed)
+  } catch (e) {
+    throw new Error("Invalid Stellar secret key — wrong format or checksum.")
+  }
+  if (hasWallet()) {
+    throw new Error(
+      "A wallet already exists in this browser. Use Export first if you want to replace it.",
+    )
+  }
+  const publicKey = kp.publicKey()
+  const encrypted = await encryptSecret(trimmed, pincode)
+  saveWallet(publicKey, encrypted)
+  return { publicKey, secretKey: trimmed }
+}
+
 export function getPublicKey(): string | null {
   const stored = getStoredWallet()
   return stored?.publicKey ?? null

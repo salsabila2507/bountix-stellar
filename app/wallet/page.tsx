@@ -25,7 +25,11 @@ export default function WalletDashboard() {
   const [usdcLoading, setUsdcLoading] = useState(false)
   const [usdcError, setUsdcError] = useState<string | null>(null)
   const [usdcMessage, setUsdcMessage] = useState<string | null>(null)
-  const { requestUnlock } = useSecretKey()
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [exportPincodeError, setExportPincodeError] = useState<string | null>(null)
+  const [exportedKey, setExportedKey] = useState<string | null>(null)
+  const [exportCopied, setExportCopied] = useState(false)
+  const { requestUnlock, clearKey } = useSecretKey()
 
   useEffect(() => {
     if (publicKey && !isLocked) {
@@ -173,6 +177,18 @@ export default function WalletDashboard() {
           </div>
           <div className="flex gap-2">
             <button
+              className="inline-flex min-h-9 items-center rounded-lg border-2 border-[#140625] bg-white px-3 py-1 text-xs font-black uppercase text-[#140625] shadow-[2px_2px_0_#140625] transition hover:bg-[#f1d8ff]"
+              onClick={() => {
+                setExportedKey(null)
+                setExportCopied(false)
+                setExportPincodeError(null)
+                setExportModalOpen(true)
+              }}
+              title="Export your secret key so you can restore this wallet in another browser."
+            >
+              Export Key
+            </button>
+            <button
               className="inline-flex min-h-9 items-center rounded-lg border-2 border-[#140625] bg-white px-3 py-1 text-xs font-black text-[#140625] shadow-[2px_2px_0_#140625] transition hover:bg-[#38e7ff]"
               onClick={refreshAccount}
             >
@@ -289,6 +305,87 @@ export default function WalletDashboard() {
         <p className="text-sm font-bold text-[#3c214b]">
           This will add a trustline for testnet USDC and request 100 USDC from the faucet.
         </p>
+      </ConfirmationModal>
+
+      <ConfirmationModal
+        open={exportModalOpen}
+        title="Export Secret Key"
+        onConfirm={async (pincode) => {
+          setExportPincodeError(null)
+          try {
+            const wallet = await requestUnlock(pincode)
+            setExportedKey(wallet.secretKey)
+            clearKey()
+          } catch (err: any) {
+            setExportPincodeError(err?.message ?? "Could not unlock wallet")
+          }
+        }}
+        onCancel={() => {
+          if (exportedKey) setExportedKey(null)
+          setExportModalOpen(false)
+          setExportPincodeError(null)
+          setExportCopied(false)
+        }}
+        loading={false}
+        error={exportPincodeError}
+      >
+        {exportedKey ? (
+          <div className="space-y-3 text-left">
+            <p className="text-xs font-black text-[#ff4fb8]">
+              ⚠️ Anyone with this secret key controls this wallet. Never share. Save it somewhere only you can access.
+            </p>
+            <textarea
+              readOnly
+              value={exportedKey}
+              onFocus={(e) => e.currentTarget.select()}
+              className="block w-full rounded-lg border-2 border-[#140625] bg-[#fffaf4] px-3 py-2 text-xs font-mono font-bold text-[#140625]"
+              rows={3}
+            />
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="inline-flex min-h-10 items-center rounded-lg border-2 border-[#140625] bg-[#ffdd3d] px-3 py-2 text-xs font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#38e7ff]"
+                onClick={async () => {
+                  try {
+                    if (navigator?.clipboard?.writeText) {
+                      await navigator.clipboard.writeText(exportedKey)
+                      setExportCopied(true)
+                      setTimeout(() => setExportCopied(false), 2500)
+                    }
+                  } catch {
+                    // ignore — user can copy manually
+                  }
+                }}
+              >
+                {exportCopied ? "Copied!" : "Copy to clipboard"}
+              </button>
+              <button
+                type="button"
+                className="inline-flex min-h-10 items-center rounded-lg border-2 border-[#140625] bg-white px-3 py-2 text-xs font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#38e7ff]"
+                onClick={() => {
+                  setExportModalOpen(false)
+                  setExportedKey(null)
+                  setExportCopied(false)
+                }}
+              >
+                Done
+              </button>
+            </div>
+            <p className="text-xs font-bold text-[#5a3b66]">
+              To restore in another browser, open <code className="font-mono">/wallet/signup</code> → Import.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2 text-left text-sm font-bold text-[#3c214b]">
+            <p>
+              Enter your pincode to reveal your secret key. This unlocks
+              the encrypted key in your browser and shows it once.
+            </p>
+            <p className="text-xs font-black text-[#ff4fb8]">
+              ⚠️ Anyone with this secret key controls this wallet. Never paste it on a website you don&apos;t trust.
+            </p>
+          </div>
+        )}
       </ConfirmationModal>
     </div>
   )

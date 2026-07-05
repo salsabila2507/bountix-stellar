@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useWallet } from "@/lib/stellar/wallet-context"
-import { hasWallet } from "@/lib/stellar/wallet-store"
+import { hasWallet, importAndStoreWallet } from "@/lib/stellar/wallet-store"
 import { friendbotFund } from "@/lib/stellar/horizon"
 
 async function saveWalletAddress(address: string): Promise<void> {
@@ -33,8 +33,11 @@ export default function WalletSignup() {
   }, [isLoaded, initialCheckDone, router])
   const [pincode, setPincode] = useState("")
   const [confirmPincode, setConfirmPincode] = useState("")
+  const [mode, setMode] = useState<"create" | "import">("create")
+  const [importSecret, setImportSecret] = useState("")
   const [step, setStep] = useState<"intro" | "create" | "confirm" | "funding" | "done">("intro")
   const [error, setError] = useState<string | null>(null)
+  const [importedKey, setImportedKey] = useState<string>("")
   const [loading, setLoading] = useState(false)
   const [publicKey, setPublicKey] = useState<string | null>(null)
   const [fundMessage, setFundMessage] = useState<string | null>(null)
@@ -51,8 +54,10 @@ export default function WalletSignup() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
         <div className="comic-card max-w-md w-full p-8 text-center space-y-4">
-          <div className="text-6xl">🎉</div>
-          <h1 className="text-2xl font-black text-[#140625]">Wallet Created!</h1>
+          <div className="text-6xl">{importedKey ? "🔓" : "🎉"}</div>
+          <h1 className="text-2xl font-black text-[#140625]">
+            {importedKey ? "Wallet Imported!" : "Wallet Created!"}
+          </h1>
           <p className="font-mono text-sm text-[#5a3b66] break-all">{publicKey}</p>
           {fundMessage && (
             <p className="text-sm font-bold text-[#7c3cff]">{fundMessage}</p>
@@ -156,33 +161,154 @@ export default function WalletSignup() {
     <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
       <div className="comic-card max-w-md w-full p-8 space-y-4">
         {step === "intro" ? (
-          <>
-            <div className="text-center">
-              <p className="comic-chip bg-[#ffdd3d] mx-auto w-fit">Stellar Wallet</p>
-              <h1 className="mt-3 text-2xl font-black text-[#140625]">Create Your Wallet</h1>
-            </div>
+          mode === "create" ? (
+            <>
+              <div className="text-center">
+                <p className="comic-chip bg-[#ffdd3d] mx-auto w-fit">Stellar Wallet</p>
+                <h1 className="mt-3 text-2xl font-black text-[#140625]">Create Your Wallet</h1>
+              </div>
 
-            <p className="text-sm font-bold text-[#3c214b] text-center">
-              This creates a Stellar keypair (public + secret key) on the Stellar testnet.
-            </p>
+              <p className="text-sm font-bold text-[#3c214b] text-center">
+                This creates a Stellar keypair (public + secret key) on the Stellar testnet.
+              </p>
 
-            <div className="rounded-lg border-2 border-[#140625] bg-[#fffaf4] p-4 shadow-[3px_3px_0_#140625] space-y-3 text-sm font-bold text-[#3c214b]">
-              <p>🔑 <strong>Keypair</strong> — A Stellar address and its secret key. Your address is public; your secret key stays private.</p>
-              <p>🔒 <strong>Pincode</strong> — Your secret key is encrypted in your browser using the pincode. Only you can unlock your wallet.</p>
-              <p>🪙 <strong>Testnet XLM</strong> — You will need testnet XLM to send transactions. Friendbot can fund you with 10,000 free XLM.</p>
-            </div>
+              <div className="rounded-lg border-2 border-[#140625] bg-[#fffaf4] p-4 shadow-[3px_3px_0_#140625] space-y-3 text-sm font-bold text-[#3c214b]">
+                <p>🔑 <strong>Keypair</strong> — A Stellar address and its secret key. Your address is public; your secret key stays private.</p>
+                <p>🔒 <strong>Pincode</strong> — Your secret key is encrypted in your browser using the pincode. Only you can unlock your wallet.</p>
+                <p>🪙 <strong>Testnet XLM</strong> — You will need testnet XLM to send transactions. Friendbot can fund you with 10,000 free XLM.</p>
+              </div>
 
-            <p className="text-xs font-black text-[#ff4fb8] text-center">
-              ⚠️ There is no server-side backup. If you lose your pincode or clear browser data, the wallet is gone forever.
-            </p>
+              <p className="text-xs font-black text-[#ff4fb8] text-center">
+                ⚠️ There is no server-side backup. If you lose your pincode or clear browser data, the wallet is gone forever.
+              </p>
 
-            <button
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border-2 border-[#140625] bg-[#38e7ff] px-4 py-2 text-sm font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#ffdd3d]"
-              onClick={() => setStep("create")}
-            >
-              Create Wallet
-            </button>
-          </>
+              <button
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border-2 border-[#140625] bg-[#38e7ff] px-4 py-2 text-sm font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#ffdd3d]"
+                onClick={() => setStep("create")}
+              >
+                Create Wallet
+              </button>
+              <button
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border-2 border-[#140625] bg-white px-4 py-2 text-sm font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#f1d8ff]"
+                onClick={() => {
+                  setMode("import")
+                  setError(null)
+                  setImportSecret("")
+                }}
+              >
+                I already have a secret key (Import)
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="text-center">
+                <p className="comic-chip bg-[#7c3cff] text-white mx-auto w-fit">Import Wallet</p>
+                <h1 className="mt-3 text-2xl font-black text-[#140625]">Paste Secret Key</h1>
+                <p className="mt-1 text-sm font-bold text-[#3c214b]">
+                  Restore an existing Bountix wallet in this browser.
+                </p>
+              </div>
+
+              <p className="text-xs font-black text-[#5a3b66] text-center">
+                Your secret key starts with <code className="font-mono">S…</code> and is around 56 chars long.
+              </p>
+
+              <div>
+                <label className="text-xs font-black uppercase text-[#5a3b66]">Secret Key</label>
+                <input
+                  type="password"
+                  value={importSecret}
+                  onChange={(e) => setImportSecret(e.target.value)}
+                  className="mt-1 block w-full rounded-lg border-2 border-[#140625] bg-[#fffaf4] px-3 py-2 text-center text-sm font-mono font-bold text-[#140625] outline-none focus:bg-white"
+                  placeholder="SXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+                  autoFocus
+                  spellCheck={false}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-black uppercase text-[#5a3b66]">New Pincode</label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value.replace(/\D/g, ""))}
+                  className="mt-1 block w-full rounded-lg border-2 border-[#140625] bg-[#fffaf4] px-3 py-2 text-center text-lg tracking-widest font-bold text-[#140625] outline-none focus:bg-white"
+                  placeholder="• • • • • •"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-black uppercase text-[#5a3b66]">Confirm Pincode</label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={confirmPincode}
+                  onChange={(e) => setConfirmPincode(e.target.value.replace(/\D/g, ""))}
+                  className="mt-1 block w-full rounded-lg border-2 border-[#140625] bg-[#fffaf4] px-3 py-2 text-center text-lg tracking-widest font-bold text-[#140625] outline-none focus:bg-white"
+                  placeholder="• • • • • •"
+                />
+              </div>
+
+              {error && (
+                <div className="rounded-lg border-2 border-[#ff4fb8] bg-[#fff0f5] px-3 py-2 text-sm font-bold text-[#140625]">
+                  {error}
+                </div>
+              )}
+
+              <button
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border-2 border-[#140625] bg-[#ffdd3d] px-4 py-2 text-sm font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#38e7ff] disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={async () => {
+                  setError(null)
+                  if (!importSecret.trim()) {
+                    setError("Paste your secret key first.")
+                    return
+                  }
+                  if (pincode.length < 4) {
+                    setError("Pincode must be at least 4 digits.")
+                    return
+                  }
+                  if (pincode !== confirmPincode) {
+                    setError("Pincodes do not match.")
+                    return
+                  }
+                  setLoading(true)
+                  try {
+                    const wallet = await importAndStoreWallet(
+                      importSecret.trim(),
+                      pincode,
+                    )
+                    setPublicKey(wallet.publicKey)
+                    setImportedKey(wallet.secretKey)
+                    saveWalletAddress(wallet.publicKey)
+                    setStep("done")
+                  } catch (err: any) {
+                    setError(err?.message ?? "Failed to import wallet")
+                  } finally {
+                    setLoading(false)
+                  }
+                }}
+                disabled={loading}
+              >
+                {loading ? (
+                  <span className="loading loading-spinner text-[#38e7ff]" />
+                ) : (
+                  "Import Wallet"
+                )}
+              </button>
+              <button
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border-2 border-[#140625] bg-white px-4 py-2 text-sm font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#f1d8ff]"
+                onClick={() => {
+                  setMode("create")
+                  setError(null)
+                }}
+              >
+                ← Back to Create Wallet
+              </button>
+            </>
+          )
         ) : (
           <>
             <div className="text-center">
