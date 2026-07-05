@@ -60,8 +60,21 @@ function isStellarAddress(value: string): boolean {
   return (value.startsWith("G") || value.startsWith("C")) && value.length === 56;
 }
 
+function isHexBytes(value: { __bytes?: string }): boolean {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof value.__bytes === "string"
+  );
+}
+
 function toScVal(value: unknown): xdr.ScVal {
   if (value instanceof xdr.ScVal) return value;
+
+  if (isHexBytes(value as { __bytes?: string }))
+    return xdr.ScVal.scvBytes(
+      Buffer.from((value as { __bytes: string }).__bytes, "hex"),
+    );
 
   if (typeof value === "bigint") {
     return nativeToScVal(value, { type: "i128" });
