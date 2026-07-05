@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
 interface Props {
   applicationId: string;
@@ -11,15 +11,6 @@ interface Props {
   textColor?: string;
 }
 
-/**
- * Client-side button that POSTs to a server action endpoint and then
- * forces a page reload via window.location.reload() so the applicant
- * list re-renders with the new status.
- *
- * We deliberately avoid the inline <form action={fn}> pattern because
- * on slow mobile networks we've seen the form's `action` attribute end
- * up empty during hydration, leading to "click does nothing" UX.
- */
 export function DecisionButton({
   applicationId,
   decision,
@@ -28,10 +19,12 @@ export function DecisionButton({
   hoverBg,
   textColor = "text-white",
 }: Props) {
-  const [pending, startTransition] = useTransition();
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleClick() {
+    if (loading) return;
+    setLoading(true);
     setError(null);
     try {
       const resp = await fetch("/api/applications/decide", {
@@ -42,12 +35,13 @@ export function DecisionButton({
       if (!resp.ok) {
         const data = await resp.json().catch(() => ({}));
         setError(data.error ?? `Failed (${resp.status})`);
+        setLoading(false);
         return;
       }
-      // Force reload so server-side rerender shows the new status.
       window.location.reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
+      setLoading(false);
     }
   }
 
@@ -55,11 +49,11 @@ export function DecisionButton({
     <div className="flex flex-col items-start gap-1">
       <button
         type="button"
-        onClick={() => startTransition(() => void handleClick())}
-        disabled={pending}
+        onClick={handleClick}
+        disabled={loading}
         className={`inline-flex min-h-10 items-center gap-2 rounded-lg border-2 border-[#140625] px-3 py-2 text-xs font-black uppercase shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 ${bgColor} ${textColor} ${hoverBg}`}
       >
-        {pending ? "..." : label}
+        {loading ? "..." : label}
       </button>
       {error ? (
         <span className="text-[10px] font-bold text-[#ff4fb8]">{error}</span>
