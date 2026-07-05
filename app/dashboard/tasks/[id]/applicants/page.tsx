@@ -14,12 +14,12 @@ import {
 } from "@/lib/i18n";
 import { getRequestLocale } from "@/lib/i18n/server";
 import {
-  decideApplicationAction,
   restoreApplicationAction,
   reviewSubmissionAction,
   selectRaffleWinnersAction,
   setSubmissionRaffleEligibilityAction,
 } from "@/app/applications/actions";
+import { DecisionButton } from "@/components/marketplace/decision-button";
 import { getServerUser } from "@/lib/server-user";
 import { TASK_LIST_COLUMNS, isUuid, type DbTask } from "@/lib/tasks";
 import {
@@ -330,16 +330,6 @@ export default async function ApplicantsPage({ params }: RouteParams) {
               const subs = subsByApp.get(app.id) ?? [];
               const chatMessages = messagesByApp.get(app.id) ?? [];
               const latestSubmissionId = subs[0]?.id ?? null;
-              const acceptAction = decideApplicationAction.bind(
-                null,
-                app.id,
-                "accepted",
-              );
-              const rejectAction = decideApplicationAction.bind(
-                null,
-                app.id,
-                "rejected",
-              );
 
               return (
                 <article
@@ -404,16 +394,21 @@ export default async function ApplicantsPage({ params }: RouteParams) {
 
                   {app.status === "pending" ? (
                     <div className="mt-4 flex flex-wrap gap-2">
-                      <form action={acceptAction}>
-                        <button className="inline-flex min-h-10 items-center gap-2 rounded-lg border-2 border-[#140625] bg-[#23b26d] px-3 py-2 text-xs font-black uppercase text-white shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#1f6b3a]">
-                          {t("applicants.accept")}
-                        </button>
-                      </form>
-                      <form action={rejectAction}>
-                        <button className="inline-flex min-h-10 items-center gap-2 rounded-lg border-2 border-[#140625] bg-white px-3 py-2 text-xs font-black uppercase text-[#c42463] shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#ffe1ed]">
-                          {t("applicants.reject")}
-                        </button>
-                      </form>
+                      <DecisionButton
+                        applicationId={app.id}
+                        decision="accepted"
+                        label={t("applicants.accept")}
+                        bgColor="bg-[#23b26d]"
+                        hoverBg="hover:bg-[#1f6b3a]"
+                      />
+                      <DecisionButton
+                        applicationId={app.id}
+                        decision="rejected"
+                        label={t("applicants.reject")}
+                        bgColor="bg-white"
+                        hoverBg="hover:bg-[#ffe1ed]"
+                        textColor="text-[#c42463]"
+                      />
                     </div>
                   ) : null}
 
