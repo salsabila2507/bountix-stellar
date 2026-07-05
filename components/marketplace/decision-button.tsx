@@ -33,18 +33,22 @@ export function DecisionButton({
 
   async function handleClick() {
     setError(null);
-    const resp = await fetch("/api/applications/decide", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ applicationId, decision }),
-    });
-    if (!resp.ok) {
-      const data = await resp.json().catch(() => ({}));
-      setError(data.error ?? `Failed (${resp.status})`);
-      return;
+    try {
+      const resp = await fetch("/api/applications/decide", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ applicationId, decision }),
+      });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        setError(data.error ?? `Failed (${resp.status})`);
+        return;
+      }
+      // Force reload so server-side rerender shows the new status.
+      window.location.reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Network error");
     }
-    // Force reload so server-side rerender shows the new status.
-    window.location.reload();
   }
 
   return (
