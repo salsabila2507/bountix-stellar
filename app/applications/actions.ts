@@ -91,9 +91,46 @@ export async function applyToTaskAction(
     };
   }
 
+  // Notify the task creator that someone applied.
+  await notifyTaskCreatorAction(taskId, user.id);
+
   revalidatePath(`/tasks/${taskId}`);
   revalidatePath(`/dashboard/applications`);
   return { status: "success", message: "Application submitted." };
+}
+
+/**
+ * Insert a notification row for the task creator when a new application
+ * is submitted. Best-effort — application insert already succeeded.
+ */
+async function notifyTaskCreatorAction(taskId: string, applicantId: string) {
+  try {
+    const { supabase, user } = await loadActor();
+    if (!user) return;
+    const { data: task } = await supabase
+      .from("tasks")
+      .select("creator_id, title")
+      .eq("id", taskId)
+      .maybeSingle();
+    const row = task as { creator_id: string; title: string } | null;
+    if (!row || row.creator_id === applicantId) return;
+    const { data: applicant } = await supabase
+      .from("profiles")
+      .select("username, full_name")
+      .eq("id", applicantId)
+      .maybeSingle();
+    const profile = applicant as
+      | { username: string | null; full_name: string | null }
+      | null;
+    const who =
+      profile?.username || profile?.full_name || "Someone";
+    await supabase.from("notifications").insert({
+      profile_id: row.creator_id,
+      title: "New application",
+      body: `${who} applied to "${row.title}"`,
+      link_url: `/tasks/${taskId}#applications`,
+    });
+  } catch {}
 }
 
 export async function withdrawApplicationAction(applicationId: string) {
