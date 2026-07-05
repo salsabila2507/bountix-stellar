@@ -213,8 +213,8 @@ export function EscrowFundPanel({
     } catch (err) {
       const message =
         err instanceof Error ? err.message : t("escrow.fund.failed");
-      setError(message.slice(0, 2000));
-      setConfirmError(message.slice(0, 500));
+      setError(message.slice(0, 5000));
+      setConfirmError(message.slice(0, 800));
       setPhase("error");
     } finally {
       setSubmitting(false);

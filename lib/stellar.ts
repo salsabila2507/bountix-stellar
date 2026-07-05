@@ -202,10 +202,25 @@ export async function invokeSorobanWithKeypair(
   const simulation = await server.simulateTransaction(tx);
   if (rpc.Api.isSimulationError(simulation)) {
     const events = simulation.events
-      ? JSON.stringify(simulation.events).substring(0, 1500)
+      ? JSON.stringify(simulation.events)
       : "(no events)";
+    // Find the error diagnostic event and surface its data clearly
+    let panicData = "(unknown panic)";
+    try {
+      const ev = simulation.events as any[];
+      // The first event is usually the fn_call, the second is the error.
+      const last = ev[ev.length - 1];
+      if (last?.event?.body?._value?._attributes?.data) {
+        panicData = JSON.stringify(
+          last.event.body._value._attributes.data,
+        ).substring(0, 500);
+      }
+    } catch {}
+    console.error(
+      "[invokeSorobanWithKeypair] contract panic data: " + panicData,
+    );
     throw new Error(
-      `Soroban simulation error: ${simulation.error}\nEvents: ${events}`,
+      `Soroban simulation error: ${simulation.error}\nPanic: ${panicData}\nEvents: ${events}`,
     );
   }
 
