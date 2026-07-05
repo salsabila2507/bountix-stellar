@@ -366,6 +366,7 @@ export async function createSubmissionAction(
     task_id: app.task_id,
     application_id: applicationId,
     submitter_id: user.id,
+    applicant_id: user.id,
     delivery_url,
     notes: notes || null,
     status: "pending_review",
