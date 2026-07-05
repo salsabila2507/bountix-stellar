@@ -7,7 +7,7 @@ import {
   rpc,
   Operation,
   Address,
-  xdr,
+  nativeToScVal,
 } from "@stellar/stellar-sdk"
 import { STELLAR_USDC_ADDRESS } from "@/lib/payments"
 
@@ -46,12 +46,7 @@ export async function POST(req: NextRequest) {
           args: [
             Address.fromString(adminKp.publicKey()).toScVal(),
             Address.fromString(publicKey).toScVal(),
-            xdr.ScVal.scvI128(
-              new xdr.Int128Parts({
-                lo: FAUCET_AMOUNT,
-                hi: 0n,
-              }),
-            ),
+            nativeToScVal(FAUCET_AMOUNT, { type: "i128" }),
           ],
         }),
       )
