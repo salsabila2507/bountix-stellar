@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
           contractIds: [STELLAR_USDC_ADDRESS],
         },
       ],
-      pagination: { limit: 100 },
+      limit: 100,
     })
 
     const tokenMap: Record<string, string> = {
