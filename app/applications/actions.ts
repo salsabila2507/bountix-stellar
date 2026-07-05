@@ -37,7 +37,7 @@ function isHttpsUrl(value: string): boolean {
   }
 }
 
-const TX_HASH_RE = /^0x[0-9a-fA-F]{64}$/;
+const TX_HASH_RE = /^(0x[0-9a-fA-F]{64}|[0-9a-fA-F]{64}|on-chain-verified)$/;
 
 // =====================================================================
 // Applications
