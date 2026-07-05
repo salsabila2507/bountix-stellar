@@ -1,63 +1,39 @@
 "use client"
 
+import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useWallet } from "@/lib/stellar/wallet-context"
-import { useSecretKey } from "@/lib/stellar/wallet-context"
-import { fetchAccount, type Balance } from "@/lib/stellar/horizon"
-import { buildChangeTrust, signTransaction, submitTransaction } from "@/lib/stellar/transactions"
-import { Asset } from "@stellar/stellar-sdk"
-import { ConfirmationModal } from "@/components/wallet/confirmation-modal"
+import { getCachedSorobanTokenBalance } from "@/lib/stellar"
+import { STELLAR_USDC_ADDRESS, STELLAR_USDT_ADDRESS } from "@/lib/payments"
 
-const KNOWN_ASSETS = [
-  { code: "USDC", issuer: "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5" },
-  { code: "USDT", issuer: "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5" },
+const KNOWN_SOROBAN_TOKENS = [
+  { name: "USDC", contract: STELLAR_USDC_ADDRESS },
+  { name: "USDT", contract: STELLAR_USDT_ADDRESS },
 ]
 
 export default function AssetsPage() {
-  const { publicKey, isLocked, refreshAccount } = useWallet()
-  const { secretKey, requestUnlock, clearKey } = useSecretKey()
-
-  const [balances, setBalances] = useState<Balance[]>([])
+  const { publicKey, isLocked } = useWallet()
+  const [balances, setBalances] = useState<Record<string, bigint | null>>({})
   const [loading, setLoading] = useState(false)
-  const [showConfirm, setShowConfirm] = useState(false)
-  const [confirmError, setConfirmError] = useState<string | null>(null)
-  const [addingAsset, setAddingAsset] = useState<{ code: string; issuer: string } | null>(null)
 
   useEffect(() => {
     if (publicKey && !isLocked) {
-      fetchAccount(publicKey)
-        .then((a) => setBalances(a.balances))
-        .catch(() => setBalances([]))
+      setLoading(true)
+      Promise.all(
+        KNOWN_SOROBAN_TOKENS.map(async (t) => {
+          const bal = await getCachedSorobanTokenBalance(t.contract, publicKey, true)
+          return { name: t.name, balance: bal }
+        }),
+      )
+        .then((results) => {
+          const map: Record<string, bigint | null> = {}
+          for (const r of results) map[r.name] = r.balance
+          setBalances(map)
+        })
+        .catch(() => setBalances({}))
+        .finally(() => setLoading(false))
     }
   }, [publicKey, isLocked])
-
-  const hasTrustline = (code: string, issuer: string) =>
-    balances.some((b) => b.asset_code === code && b.asset_issuer === issuer)
-
-  const handleAddTrustline = (code: string, issuer: string) => {
-    setAddingAsset({ code, issuer })
-    setShowConfirm(true)
-  }
-
-  const handleConfirm = async (pincode: string) => {
-    if (!addingAsset) return
-    setConfirmError(null)
-    setLoading(true)
-    try {
-      const wallet = await requestUnlock(pincode)
-      const asset = new Asset(addingAsset.code, addingAsset.issuer)
-      const tx = await buildChangeTrust(wallet.secretKey, asset)
-      const signed = signTransaction(tx, wallet.secretKey)
-      await submitTransaction(signed)
-      setShowConfirm(false)
-      clearKey()
-      refreshAccount()
-    } catch (err: any) {
-      setConfirmError(err.message ?? "Failed to add trustline")
-    } finally {
-      setLoading(false)
-    }
-  }
 
   if (isLocked || !publicKey) {
     return (
@@ -67,82 +43,49 @@ export default function AssetsPage() {
     )
   }
 
+  function formatSorobanUsdc(units: bigint): string {
+    const num = Number(units) / 10_000_000
+    return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 7 })
+  }
+
   return (
     <div className="max-w-lg mx-auto p-4 space-y-6">
-      <h1 className="text-2xl font-black text-[#140625]">Assets & Trustlines</h1>
+      <Link href="/wallet" className="inline-flex items-center gap-1 text-xs font-bold text-[#5a3b66] hover:text-[#140625] transition">
+        ← Back to Dashboard
+      </Link>
+      <h1 className="text-2xl font-black text-[#140625]">Soroban Tokens</h1>
 
       <div className="comic-card p-6">
-        <h2 className="text-lg font-black text-[#140625]">Your Balances</h2>
-        {balances.length === 0 ? (
-          <p className="text-sm font-bold text-[#5a3b66] text-center py-4">No balances loaded</p>
+        <h2 className="text-lg font-black text-[#140625]">Your Token Balances</h2>
+        <p className="mt-1 text-sm font-bold text-[#5a3b66]">
+          These are SEP-41 Soroban token balances (used by the Bountix escrow).
+        </p>
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <span className="loading loading-spinner text-[#38e7ff]" />
+          </div>
         ) : (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b-2 border-[#140625] text-left text-xs font-black uppercase text-[#5a3b66]">
-                  <th className="pb-2 pr-4">Asset</th>
-                  <th className="pb-2">Balance</th>
-                </tr>
-              </thead>
-              <tbody>
-                {balances.map((b, i) => (
-                  <tr key={i} className="border-b border-[#140625]/10">
-                    <td className="py-2 pr-4 font-bold text-[#140625]">{b.asset_type === "native" ? "XLM" : `${b.asset_code}`}</td>
-                    <td className="py-2 font-mono text-[#140625]">{Number(b.balance).toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="mt-4 space-y-2">
+            {KNOWN_SOROBAN_TOKENS.map((t) => {
+              const bal = balances[t.name]
+              return (
+                <div
+                  key={t.name}
+                  className="flex items-center justify-between rounded-lg border-2 border-[#140625] bg-[#fffaf4] p-3 shadow-[2px_2px_0_#140625]"
+                >
+                  <div>
+                    <span className="font-black text-[#140625]">{t.name}</span>
+                    <p className="font-mono text-xs text-[#5a3b66] truncate w-48">{t.contract}</p>
+                  </div>
+                  <span className="font-mono font-bold text-[#140625]">
+                    {bal !== null && bal !== undefined ? formatSorobanUsdc(bal) : "—"}
+                  </span>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
-
-      <div className="comic-card p-6">
-        <h2 className="text-lg font-black text-[#140625]">Available Assets</h2>
-        <p className="mt-1 text-sm font-bold text-[#5a3b66]">
-          Add trustlines to hold non-XLM assets.
-        </p>
-        <div className="mt-4 space-y-2">
-          {KNOWN_ASSETS.map((asset) => {
-            const added = hasTrustline(asset.code, asset.issuer)
-            return (
-              <div key={asset.code} className="flex items-center justify-between rounded-lg border-2 border-[#140625] bg-[#fffaf4] p-3 shadow-[2px_2px_0_#140625]">
-                <div>
-                  <span className="font-black text-[#140625]">{asset.code}</span>
-                  <p className="font-mono text-xs text-[#5a3b66] truncate w-48">{asset.issuer}</p>
-                </div>
-                {added ? (
-                  <span className="rounded-md border-2 border-[#1f6b3a] bg-[#dff7e6] px-2 py-1 text-[0.65rem] font-black text-[#1f6b3a]">Added</span>
-                ) : (
-                  <button
-                    className="inline-flex min-h-9 items-center rounded-lg border-2 border-[#140625] bg-[#38e7ff] px-3 py-1 text-xs font-black uppercase text-[#140625] shadow-[2px_2px_0_#140625] transition hover:bg-[#ffdd3d]"
-                    onClick={() => handleAddTrustline(asset.code, asset.issuer)}
-                  >
-                    Add Trustline
-                  </button>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      <ConfirmationModal
-        open={showConfirm}
-        title="Add Trustline"
-        onConfirm={handleConfirm}
-        onCancel={() => {
-          setShowConfirm(false)
-          setConfirmError(null)
-          setAddingAsset(null)
-        }}
-        loading={loading}
-        error={confirmError}
-      >
-        <p className="text-sm text-[#140625]">
-          Add trustline for <strong>{addingAsset?.code}</strong> ({addingAsset?.issuer?.slice(0, 8)}...)?
-        </p>
-      </ConfirmationModal>
     </div>
   )
 }

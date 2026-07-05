@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useWallet } from "@/lib/stellar/wallet-context"
@@ -158,7 +159,11 @@ export default function WalletSignup() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
+    <div className="max-w-lg mx-auto p-4">
+      <Link href="/wallet" className="inline-flex items-center gap-1 text-xs font-bold text-[#5a3b66] hover:text-[#140625] transition">
+        ← Back to Dashboard
+      </Link>
+      <div className="flex flex-col items-center justify-center min-h-[50vh] px-4">
       <div className="comic-card max-w-md w-full p-8 space-y-4">
         {step === "intro" ? (
           mode === "create" ? (
@@ -382,6 +387,7 @@ export default function WalletSignup() {
             </button>
           </>
         )}
+      </div>
       </div>
     </div>
   )

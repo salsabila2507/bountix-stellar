@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useWallet, useSecretKey } from "@/lib/stellar/wallet-context"
 import { useEffect, useState, useCallback } from "react"
 import { UnlockForm } from "@/components/wallet/unlock-form"
@@ -176,6 +177,9 @@ export default function SwapPage() {
 
   return (
     <div className="max-w-2xl mx-auto p-4 space-y-6">
+      <Link href="/wallet" className="inline-flex items-center gap-1 text-xs font-bold text-[#5a3b66] hover:text-[#140625] transition">
+        ← Back to Dashboard
+      </Link>
       <div className="comic-card p-6">
         <h2 className="text-2xl font-black text-[#140625]">Swap Assets</h2>
         <p className="text-xs font-bold text-[#5a3b66] mt-1">

@@ -2,29 +2,45 @@
 
 import { useWallet, useSecretKey } from "@/lib/stellar/wallet-context"
 import { fetchPayments, type PaymentRecord } from "@/lib/stellar/horizon"
-import { useEffect, useState } from "react"
+import { getCachedSorobanTokenBalance } from "@/lib/stellar"
+import { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
 import { UnlockForm } from "@/components/wallet/unlock-form"
 import { ConfirmationModal } from "@/components/wallet/confirmation-modal"
-import { buildChangeTrust, signTransaction, submitTransaction } from "@/lib/stellar/transactions"
-import { Asset } from "@stellar/stellar-sdk"
+import { STELLAR_USDC_ADDRESS } from "@/lib/payments"
 
-function formatBalance(balance: string, asset_type: string, asset_code?: string): string {
+interface SorobanTransfer {
+  txHash: string
+  ledger: number
+  from: string
+  to: string
+  amount: string
+  token: string
+  timestamp: string
+}
+
+function formatXlm(balance: string): string {
   const num = Number.parseFloat(balance)
   if (isNaN(num)) return "0"
-  const formatted = num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 7 })
-  if (asset_type === "native") return `${formatted} XLM`
-  return `${formatted} ${asset_code ?? "?"}`
+  return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 7 }) + " XLM"
+}
+
+function formatSorobanUsdc(units: bigint): string {
+  const num = Number(units) / 10_000_000
+  return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 7 }) + " USDC"
 }
 
 export default function WalletDashboard() {
   const { isLoaded, isLocked, publicKey, account, refreshAccount } = useWallet()
   const [payments, setPayments] = useState<PaymentRecord[]>([])
   const [loadingPayments, setLoadingPayments] = useState(false)
-  const [usdcModalOpen, setUsdcModalOpen] = useState(false)
+  const [sorobanUsdcBalance, setSorobanUsdcBalance] = useState<bigint | null>(null)
+  const [balanceLoading, setBalanceLoading] = useState(false)
   const [usdcLoading, setUsdcLoading] = useState(false)
   const [usdcError, setUsdcError] = useState<string | null>(null)
   const [usdcMessage, setUsdcMessage] = useState<string | null>(null)
+  const [sorobanTransfers, setSorobanTransfers] = useState<SorobanTransfer[]>([])
+  const [transfersLoading, setTransfersLoading] = useState(false)
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [exportPincodeError, setExportPincodeError] = useState<string | null>(null)
   const [exportedKey, setExportedKey] = useState<string | null>(null)
@@ -41,75 +57,66 @@ export default function WalletDashboard() {
     }
   }, [publicKey, isLocked])
 
-  async function handleGetUsdc(pincode: string) {
+  // Load Soroban USDC balance
+  useEffect(() => {
+    if (publicKey && !isLocked) {
+      setBalanceLoading(true)
+      getCachedSorobanTokenBalance(STELLAR_USDC_ADDRESS, publicKey, true)
+        .then(setSorobanUsdcBalance)
+        .catch(() => setSorobanUsdcBalance(null))
+        .finally(() => setBalanceLoading(false))
+    }
+  }, [publicKey, isLocked])
+
+  // Load Soroban transfer history
+  const fetchSorobanTransfers = useCallback(async () => {
+    if (!publicKey) return
+    setTransfersLoading(true)
+    try {
+      const res = await fetch(`/api/wallet/soroban-history?publicKey=${publicKey}`)
+      const data = await res.json()
+      setSorobanTransfers(data.transfers ?? [])
+    } catch {
+      setSorobanTransfers([])
+    } finally {
+      setTransfersLoading(false)
+    }
+  }, [publicKey])
+
+  useEffect(() => {
+    if (publicKey && !isLocked) {
+      fetchSorobanTransfers()
+    }
+  }, [publicKey, isLocked, fetchSorobanTransfers])
+
+  async function handleGetSorobanUsdc() {
     setUsdcError(null)
     setUsdcMessage(null)
     setUsdcLoading(true)
     try {
-      const wallet = await requestUnlock(pincode)
-
-      // 1. Get faucet info
-      const infoResp = await fetch("/api/wallet/faucet-usdc")
-      const info = await infoResp.json()
-      if (!info.configured) {
-        setUsdcError("USDC faucet not configured. Ask the admin to run the faucet setup.")
-        return
-      }
-
-      const issuer = info.issuer
-      const usdcAsset = new Asset("USDC", issuer)
-
-      // 2. Fund account if needed (friendbot)
       if (!publicKey) return
+
+      // Ensure account has XLM for fees
       try {
         await fetch(`https://friendbot.stellar.org?addr=${publicKey}`)
       } catch {
-        // friendbot might fail if account already exists; that's fine
+        // friendbot might fail if account already exists
       }
 
-      // 3. Add trustline if needed
-      const hasTrustline = account?.balances?.some(
-        (b) => b.asset_code === "USDC" && b.asset_issuer === issuer,
-      )
-      if (!hasTrustline) {
-        const changeTrustTx = await buildChangeTrust(wallet.secretKey, usdcAsset)
-        const signed = signTransaction(changeTrustTx, wallet.secretKey)
-        await submitTransaction(signed)
+      const resp = await fetch("/api/wallet/faucet-soroban-usdc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ publicKey }),
+      })
+      const data = await resp.json()
+
+      if (data.success) {
+        setUsdcMessage(`Received 100 Soroban USDC! Tx: ${data.txHash}`)
+        const fresh = await getCachedSorobanTokenBalance(STELLAR_USDC_ADDRESS, publicKey, true)
+        setSorobanUsdcBalance(fresh)
+      } else {
+        setUsdcError(data.error ?? "Failed to get Soroban USDC")
       }
-
-      // 4. Keep trying until we get USDC (handles needsFunding / needsTrustline retries)
-      let attempts = 0
-      while (attempts < 5) {
-        attempts++
-        const fundResp = await fetch("/api/wallet/faucet-usdc", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ publicKey }),
-        })
-        const fundData = await fundResp.json()
-
-        if (fundData.success) {
-          setUsdcMessage(`Received 100 testnet USDC! Tx: ${fundData.txHash}`)
-          await refreshAccount()
-          return
-        }
-
-        if (fundData.needsTrustline) {
-          // Trustline just added above; retry
-          continue
-        }
-
-        if (fundData.needsFunding) {
-          // Friendbot funded above; retry
-          continue
-        }
-
-        // Unknown error
-        setUsdcError(fundData.error ?? "Failed to get USDC")
-        return
-      }
-
-      setUsdcError("Timed out trying to get USDC. Try again.")
     } catch (err: any) {
       setUsdcError(err?.message ?? "Something went wrong")
     } finally {
@@ -163,7 +170,6 @@ export default function WalletDashboard() {
   }
 
   const xlmBalance = account?.balances?.find((b) => b.asset_type === "native")
-  const otherBalances = account?.balances?.filter((b) => b.asset_type !== "native") ?? []
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
@@ -201,16 +207,28 @@ export default function WalletDashboard() {
           <div className="stat">
             <div className="text-xs font-black uppercase text-[#5a3b66]">XLM Balance</div>
             <div className="mt-1 text-3xl font-black text-[#140625]">
-              {xlmBalance ? formatBalance(xlmBalance.balance, "native") : "0 XLM"}
+              {xlmBalance ? formatXlm(xlmBalance.balance) : "0 XLM"}
             </div>
             <div className="text-xs font-bold text-[#7c3cff]">Stellar Testnet</div>
           </div>
+          <div className="mt-3 border-t-2 border-[#140625]/20 pt-3">
+            <div className="text-xs font-black uppercase text-[#5a3b66]">Soroban USDC Balance</div>
+            <div className="mt-1 text-2xl font-black text-[#140625]">
+              {balanceLoading ? (
+                <span className="loading loading-spinner loading-sm text-[#38e7ff]" />
+              ) : sorobanUsdcBalance !== null ? (
+                formatSorobanUsdc(sorobanUsdcBalance)
+              ) : (
+                "0 USDC"
+              )}
+            </div>
+          </div>
           <button
             className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg border-2 border-[#140625] bg-[#38e7ff] px-3 py-2 text-xs font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#ffdd3d] disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={() => setUsdcModalOpen(true)}
+            onClick={handleGetSorobanUsdc}
             disabled={usdcLoading}
           >
-            {usdcLoading ? <span className="loading loading-spinner" /> : "Get 100 Testnet USDC"}
+            {usdcLoading ? <span className="loading loading-spinner" /> : "Get 100 Soroban USDC"}
           </button>
           {usdcMessage && (
             <p className="mt-2 text-xs font-bold text-[#1f6b3a] break-all">{usdcMessage}</p>
@@ -219,19 +237,6 @@ export default function WalletDashboard() {
             <p className="mt-2 text-xs font-bold text-[#ff4fb8]">{usdcError}</p>
           )}
         </div>
-
-        {otherBalances.length > 0 && (
-          <div className="mt-4">
-            <h3 className="text-sm font-black text-[#5a3b66]">Other Assets</h3>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {otherBalances.map((b, i) => (
-                <span key={i} className="rounded-lg border-2 border-[#140625] bg-white px-2 py-1 text-xs font-bold text-[#140625]">
-                  {formatBalance(b.balance, b.asset_type, b.asset_code)}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -247,6 +252,56 @@ export default function WalletDashboard() {
         <Link href="/wallet/assets" className="comic-card p-6 text-center bg-[#f1d8ff] hover:-translate-y-0.5 transition">
           <h3 className="text-sm font-black text-[#140625]">Assets</h3>
         </Link>
+      </div>
+
+      <div className="comic-card p-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-black text-[#140625]">Soroban Token Transfers</h3>
+          <button
+            className="inline-flex min-h-8 items-center rounded-lg border-2 border-[#140625] bg-white px-2 py-1 text-xs font-black text-[#140625] shadow-[2px_2px_0_#140625] transition hover:bg-[#38e7ff]"
+            onClick={fetchSorobanTransfers}
+          >
+            ↻
+          </button>
+        </div>
+        {transfersLoading ? (
+          <div className="flex justify-center py-4">
+            <span className="loading loading-spinner text-[#38e7ff]" />
+          </div>
+        ) : sorobanTransfers.length === 0 ? (
+          <p className="text-sm font-bold text-[#5a3b66] text-center py-4">No Soroban token transfers yet</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b-2 border-[#140625] text-left text-xs font-black uppercase text-[#5a3b66]">
+                  <th className="pb-2 pr-4">Type</th>
+                  <th className="pb-2 pr-4">Amount</th>
+                  <th className="pb-2 pr-4">From / To</th>
+                  <th className="pb-2">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorobanTransfers.slice(0, 10).map((t, i) => (
+                  <tr key={t.txHash + i} className="border-b border-[#140625]/10">
+                    <td className="py-2 pr-4">
+                      <span className={`rounded-md border-2 border-[#140625] px-2 py-0.5 text-[0.65rem] font-black ${t.from === publicKey ? "bg-[#ff4fb8] text-white" : "bg-[#dff7e6] text-[#1f6b3a]"}`}>
+                        {t.from === publicKey ? "Sent" : "Received"}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-4 font-bold text-[#140625]">
+                      {Number.parseFloat(t.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 7 })} {t.token}
+                    </td>
+                    <td className="py-2 pr-4 font-mono text-xs text-[#5a3b66] truncate max-w-[120px]">
+                      {t.from === publicKey ? t.to : t.from}
+                    </td>
+                    <td className="py-2 text-xs text-[#5a3b66]">{t.timestamp ? new Date(t.timestamp).toLocaleDateString() : ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="comic-card p-6">
@@ -290,22 +345,6 @@ export default function WalletDashboard() {
           </div>
         )}
       </div>
-
-      <ConfirmationModal
-        open={usdcModalOpen}
-        title="Get Testnet USDC"
-        onConfirm={handleGetUsdc}
-        onCancel={() => {
-          setUsdcModalOpen(false)
-          setUsdcError(null)
-        }}
-        loading={usdcLoading}
-        error={usdcError}
-      >
-        <p className="text-sm font-bold text-[#3c214b]">
-          This will add a trustline for testnet USDC and request 100 USDC from the faucet.
-        </p>
-      </ConfirmationModal>
 
       <ConfirmationModal
         open={exportModalOpen}

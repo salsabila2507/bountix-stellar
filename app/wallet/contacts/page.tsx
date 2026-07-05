@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { useWallet } from "@/lib/stellar/wallet-context"
 import { getContacts, addContact, updateContact, deleteContact, type Contact } from "@/lib/stellar/contacts-store"
 import { StrKey } from "@stellar/stellar-sdk"
@@ -66,6 +67,9 @@ export default function ContactsPage() {
 
   return (
     <div className="max-w-lg mx-auto p-4 space-y-6">
+      <Link href="/wallet" className="inline-flex items-center gap-1 text-xs font-bold text-[#5a3b66] hover:text-[#140625] transition">
+        ← Back to Dashboard
+      </Link>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-black text-[#140625]">Contacts</h1>
         <button
