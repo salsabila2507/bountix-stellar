@@ -160,6 +160,7 @@ export async function decideApplicationAction(
   applicationId: string,
   decision: "accepted" | "rejected",
 ) {
+  console.log("[decideApplicationAction]", { applicationId, decision });
   if (decision !== "accepted" && decision !== "rejected") {
     throw new Error("Invalid decision");
   }
@@ -167,6 +168,10 @@ export async function decideApplicationAction(
     throw new Error("Invalid application id");
   }
   const { supabase, user, profile } = await loadActor();
+  console.log("[decideApplicationAction] actor", {
+    userId: user?.id,
+    profileRole: profile?.role,
+  });
   if (!user) redirect("/login");
 
   const { data: app } = await supabase
@@ -176,6 +181,7 @@ export async function decideApplicationAction(
     .maybeSingle();
 
   if (!app) throw new Error("Application not found");
+  console.log("[decideApplicationAction] app", app);
 
   const { data: task } = await supabase
     .from("tasks")
@@ -185,6 +191,11 @@ export async function decideApplicationAction(
 
   const isAdmin = profile?.role === "admin";
   if (!task || (task.creator_id !== user.id && !isAdmin)) {
+    console.log("[decideApplicationAction] not authorized", {
+      taskCreator: task?.creator_id,
+      currentUser: user.id,
+      isAdmin,
+    });
     throw new Error("Not authorized to decide on this application");
   }
 
@@ -194,9 +205,11 @@ export async function decideApplicationAction(
     .eq("id", applicationId);
 
   if (error) {
+    console.error("[decideApplicationAction] UPDATE error", error);
     throw new Error(error.message || "Failed to update application status");
   }
 
+  console.log("[decideApplicationAction] SUCCESS", { applicationId, decision });
   if (app?.task_id) {
     revalidatePath(`/tasks/${app.task_id}`);
     revalidatePath(`/dashboard/tasks/${app.task_id}/applicants`);
