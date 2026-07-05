@@ -25,18 +25,17 @@ const authedNavLinks = [
   { href: "/dashboard", labelKey: "common.dashboard" },
 ] satisfies NavLink[];
 
-function buildMenuLinks(): NavLink[] {
-  const links: NavLink[] = [
-    { href: "/admin", labelKey: "common.admin" },
-    { href: "/wallet", labelKey: "nav.wallet" },
-    { href: "/post-task", labelKey: "common.postTask" },
-    { href: "/post-service", labelKey: "common.postService" },
-    { href: "/tasks", labelKey: "common.tasks" },
-    { href: "/creators", labelKey: "service.creatorServices" },
-    { href: "/dashboard/services", labelKey: "service.myServices" },
-    { href: "/notifications", labelKey: "common.notifications" },
-    { href: "/dashboard/profile", labelKey: "dashboard.nav.profile" },
-  ];
+function buildMenuLinks(isAdmin: boolean): NavLink[] {
+  const links: NavLink[] = [];
+  if (isAdmin) links.push({ href: "/admin", labelKey: "common.admin" });
+  links.push({ href: "/wallet", labelKey: "nav.wallet" });
+  links.push({ href: "/post-task", labelKey: "common.postTask" });
+  links.push({ href: "/post-service", labelKey: "common.postService" });
+  links.push({ href: "/tasks", labelKey: "common.tasks" });
+  links.push({ href: "/creators", labelKey: "service.creatorServices" });
+  links.push({ href: "/dashboard/services", labelKey: "service.myServices" });
+  links.push({ href: "/notifications", labelKey: "common.notifications" });
+  links.push({ href: "/dashboard/profile", labelKey: "dashboard.nav.profile" });
   return links;
 }
 
@@ -128,7 +127,7 @@ export async function SiteHeader() {
                     {displayHandle}
                   </div>
                   <div className="mt-3 grid gap-2">
-                    {buildMenuLinks().map((link) => (
+                    {buildMenuLinks(user?.isAdmin ?? false).map((link) => (
                       <Link
                         key={link.href}
                         href={link.href}
@@ -207,7 +206,7 @@ export async function SiteHeader() {
               <div className="mt-3 grid gap-2 border-t-2 border-[#140625]/20 pt-3">
                 {user ? (
                   <>
-                    {buildMenuLinks().map((link) => (
+                    {buildMenuLinks(user?.isAdmin ?? false).map((link) => (
                       <Link
                         key={link.href}
                         href={link.href}
