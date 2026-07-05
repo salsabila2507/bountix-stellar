@@ -20,9 +20,9 @@ import {
 import { SubmissionForm } from "@/components/marketplace/submission-form";
 import { ApplyForm } from "@/components/marketplace/apply-form";
 import { SubmitWorkForm } from "@/components/marketplace/submit-work-form";
+import { WithdrawApplicationButton } from "@/components/marketplace/withdraw-application-button";
 import { EscrowFundPanel } from "@/components/marketplace/escrow-fund-panel";
 import { SiteHeader } from "@/components/site-header";
-import { withdrawApplicationAction } from "@/app/applications/actions";
 import {
   createTranslator,
   formatDate,
@@ -525,8 +525,51 @@ function ApplicationStatusCard({
   locale: Locale;
 }) {
   const t = createTranslator(locale);
-  const withdraw = withdrawApplicationAction.bind(null, app.id);
   const latest = submissions[0];
+
+  // Compute a simple status step for the applicant to follow.
+  type Step = {
+    label: string;
+    done: boolean;
+    active: boolean;
+  };
+  const isAccepted = app.status === "accepted" || app.status === "shortlisted";
+  const isApproved = latest?.status === "approved";
+  const isReleased = !!latest?.release_tx_hash;
+  const isRevision = latest?.status === "revision_requested";
+  const isRejected = latest?.status === "rejected";
+
+  const steps: Step[] = [
+    { label: "Applied", done: true, active: app.status === "pending" },
+    {
+      label: isAccepted ? "Accepted by owner" : "Awaiting review",
+      done: isAccepted,
+      active: !isAccepted,
+    },
+    {
+      label: isRevision
+        ? "Revisions requested"
+        : latest
+        ? "Submission posted"
+        : "Submit your work",
+      done: !!latest && !isRevision,
+      active: isAccepted && !latest,
+    },
+    {
+      label: isRejected
+        ? "Not approved"
+        : isApproved
+        ? "Approved — payout releasing"
+        : "Owner reviews submission",
+      done: isApproved || isRejected,
+      active: !!latest && !isApproved && !isRejected,
+    },
+    {
+      label: "Payout complete",
+      done: isReleased,
+      active: isApproved && !isReleased,
+    },
+  ];
 
   return (
     <>
@@ -550,15 +593,32 @@ function ApplicationStatusCard({
           </p>
         ) : null}
 
-        {app.status === "pending" && !taskClosed ? (
-          <form action={withdraw} className="mt-4">
-            <button
-              type="submit"
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border-2 border-[#140625] bg-white px-4 text-xs font-black uppercase text-[#c42463] shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#ffe1ed]"
+        {/* Timeline of status */}
+        <ol className="mt-4 grid gap-2">
+          {steps.map((step, i) => (
+            <li
+              key={i}
+              className={`flex items-center gap-2 rounded-lg border-2 px-2 py-1.5 text-xs font-black uppercase ${
+                step.done
+                  ? "border-[#1f6b3a] bg-[#dff7e6] text-[#1f6b3a]"
+                  : step.active
+                  ? "border-[#140625] bg-[#ffdd3d] text-[#140625] shadow-[2px_2px_0_#140625]"
+                  : "border-[#140625]/15 bg-white text-[#5a3b66]"
+              }`}
             >
-              {t("taskDetail.withdrawApplication")}
-            </button>
-          </form>
+              <span className="font-mono text-[10px] uppercase">
+                {step.done ? "✓" : step.active ? "▶" : "·"}
+              </span>
+              <span>{step.label}</span>
+            </li>
+          ))}
+        </ol>
+
+        {app.status === "pending" && !taskClosed ? (
+          <WithdrawApplicationButton
+            applicationId={app.id}
+            label={t("taskDetail.withdrawApplication")}
+          />
         ) : null}
       </div>
 

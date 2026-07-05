@@ -125,9 +125,10 @@ async function notifyTaskCreatorAction(taskId: string, applicantId: string) {
     const who =
       profile?.username || profile?.full_name || "Someone";
     await supabase.from("notifications").insert({
-      profile_id: row.creator_id,
+      user_id: row.creator_id,
       title: "New application",
       body: `${who} applied to "${row.title}"`,
+      type: "personal",
       link_url: `/tasks/${taskId}#applications`,
     });
   } catch {}
@@ -210,6 +211,54 @@ export async function decideApplicationAction(
   }
 
   console.log("[decideApplicationAction] SUCCESS", { applicationId, decision });
+
+  // Notify the applicant and the task creator
+  try {
+    const { data: fullApp } = await supabase
+      .from("task_applications")
+      .select("applicant_id, task_id")
+      .eq("id", applicationId)
+      .maybeSingle();
+    if (fullApp) {
+      const { data: task } = await supabase
+        .from("tasks")
+        .select("title, creator_id")
+        .eq("id", fullApp.task_id)
+        .maybeSingle();
+      const title = (task as { title: string } | null)?.title ?? "task";
+      const creatorId =
+        (task as { creator_id: string } | null)?.creator_id ?? null;
+      // Pick the right message
+      const verb = decision === "accepted" ? "accepted" : "rejected";
+      // Notify applicant
+      await supabase.from("notifications").insert({
+        user_id: fullApp.applicant_id,
+        title: decision === "accepted" ? "Application accepted" : "Application rejected",
+        body:
+          decision === "accepted"
+            ? `Your application for "${title}" was accepted. Submit your work anytime.`
+            : `Your application for "${title}" was rejected. Don't worry — apply to other tasks.`,
+        type: "personal",
+        link_url:
+          decision === "accepted"
+            ? `/dashboard/applications#${applicationId}`
+            : `/tasks/${fullApp.task_id}`,
+      });
+      // Extra: if accepted, also remind the creator to expect a submission
+      if (decision === "accepted" && creatorId && creatorId !== fullApp.applicant_id) {
+        await supabase.from("notifications").insert({
+          user_id: creatorId,
+          title: "Worker ready to deliver",
+          body: `An applicant was accepted for "${title}". They can submit work from their dashboard.`,
+          type: "personal",
+          link_url: `/dashboard/tasks/${fullApp.task_id}/applicants`,
+        });
+      }
+    }
+  } catch (err) {
+    console.error("[decideApplicationAction] notify error:", err);
+  }
+
   if (app?.task_id) {
     revalidatePath(`/tasks/${app.task_id}`);
     revalidatePath(`/dashboard/tasks/${app.task_id}/applicants`);
@@ -326,6 +375,27 @@ export async function createSubmissionAction(
     return { status: "error", message: error.message || "Could not submit." };
   }
 
+  // Notify the task creator that work came in
+  try {
+    const { data: task } = await supabase
+      .from("tasks")
+      .select("title, creator_id")
+      .eq("id", app.task_id)
+      .maybeSingle();
+    const row = task as { title: string; creator_id: string } | null;
+    if (row && row.creator_id !== user.id) {
+      await supabase.from("notifications").insert({
+        user_id: row.creator_id,
+        title: "Submissions received",
+        body: `New work delivery posted for "${row.title}". Review and approve to enable payout.`,
+        type: "personal",
+        link_url: `/dashboard/tasks/${app.task_id}/applicants`,
+      });
+    }
+  } catch (err) {
+    console.error("[createSubmissionAction] notify error:", err);
+  }
+
   revalidatePath(`/tasks/${app.task_id}`);
   revalidatePath(`/dashboard/applications`);
   return { status: "success", message: "Submission posted for review." };
@@ -435,6 +505,43 @@ export async function reviewSubmissionAction(
       reviewed_at: new Date().toISOString(),
     })
     .eq("id", submissionId);
+
+  // Notify the applicant about the review decision
+  try {
+    const { data: sub } = await supabase
+      .from("task_submissions")
+      .select("submitter_id")
+      .eq("id", submissionId)
+      .maybeSingle();
+    const { data: task } = await supabase
+      .from("tasks")
+      .select("title")
+      .eq("id", row.task_id)
+      .maybeSingle();
+    const subRow = sub as { submitter_id: string } | null;
+    const title = (task as { title: string } | null)?.title ?? "task";
+    if (subRow?.submitter_id) {
+      const verbMap: Record<string, string> = {
+        approved: "Your work was approved",
+        rejected: "Your work was rejected",
+        revision_requested: "Revisions requested",
+      };
+      const bodyMap: Record<string, string> = {
+        approved: `Great work! "${title}" was approved.`,
+        rejected: `"${title}" was rejected.${review_notes ? ` Reason: ${review_notes}` : ""}`,
+        revision_requested: `"${title}" needs changes.${review_notes ? ` ${review_notes}` : ""}`,
+      };
+      await supabase.from("notifications").insert({
+        user_id: subRow.submitter_id,
+        title: verbMap[decision] ?? "Submission reviewed",
+        body: bodyMap[decision] ?? `Your submission for "${title}" was reviewed.`,
+        type: "personal",
+        link_url: `/dashboard/applications#${submissionId}`,
+      });
+    }
+  } catch (err) {
+    console.error("[reviewSubmissionAction] notify error:", err);
+  }
 
   if (row?.task_id) {
     revalidatePath(`/tasks/${row.task_id}`);
@@ -643,6 +750,25 @@ export async function releaseEscrowAction(
     };
   }
 
+  // Notify the worker that they got paid
+  try {
+    const { data: t } = await supabase
+      .from("tasks")
+      .select("title")
+      .eq("id", task.id)
+      .maybeSingle();
+    const title = (t as { title: string } | null)?.title ?? "task";
+    await supabase.from("notifications").insert({
+      user_id: submission.submitter_id,
+      title: "Escrow released",
+      body: `Escrow for "${title}" has been released to your wallet. Net payout: see Stellar tx ${releaseTxHash.slice(0, 12)}…`,
+      type: "personal",
+      link_url: `/dashboard/applications#${submissionId}`,
+    });
+  } catch (err) {
+    console.error("[releaseEscrowAction] notify error:", err);
+  }
+
   revalidatePath(`/dashboard/tasks/${task.id}/applicants`);
   revalidatePath(`/tasks/${task.id}`);
 
@@ -743,6 +869,32 @@ export async function releaseRaffleEscrowAction(
       ok: false,
       message: error.message || "Could not record raffle release.",
     };
+  }
+
+  // Notify each winner
+  try {
+    const { data: t } = await supabase
+      .from("tasks")
+      .select("title")
+      .eq("id", taskId)
+      .maybeSingle();
+    const title = (t as { title: string } | null)?.title ?? "task";
+    const { data: winnerSubs } = await supabase
+      .from("task_submissions")
+      .select("id, submitter_id")
+      .in("id", winnerRows.map((w) => w.id));
+    const list = (winnerSubs as { id: string; submitter_id: string }[]) ?? [];
+    for (const w of list) {
+      await supabase.from("notifications").insert({
+        user_id: w.submitter_id,
+        title: "Raffle escrow released",
+        body: `Raffle escrow for "${title}" has been released to your wallet. See Stellar tx ${releaseTxHash.slice(0, 12)}…`,
+        type: "personal",
+        link_url: `/dashboard/applications#${w.id}`,
+      });
+    }
+  } catch (err) {
+    console.error("[releaseRaffleEscrowAction] notify error:", err);
   }
 
   revalidatePath(`/dashboard/tasks/${task.id}/applicants`);

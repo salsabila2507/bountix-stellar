@@ -477,7 +477,27 @@ export async function markTaskEscrowFundedAction(
   revalidatePath(`/tasks/${taskId}`);
   revalidatePath("/dashboard/tasks");
 
-  return { ok: true, message: "Escrow funded. Task is now open." };
+  // Notify the task creator that escrow is now funded
+  try {
+    const { data: taskRow } = await supabase
+      .from("tasks")
+      .select("title")
+      .eq("id", taskId)
+      .maybeSingle();
+    const title = (taskRow as { title: string } | null)?.title ?? "task";
+    // Self-notify (creator funded it themselves)
+    await supabase.from("notifications").insert({
+      user_id: userId,
+      title: "Escrow funded",
+      body: `Your task "${title}" escrow is funded. It is now open for applications. Stellar tx: ${txHash.slice(0, 12)}…`,
+      type: "personal",
+      link_url: `/tasks/${taskId}`,
+    });
+  } catch (err) {
+    console.error("[markTaskEscrowFundedAction] notify error:", err);
+  }
+
+  return { ok: true, message: "Escrow funded and task is open." };
 }
 
 export async function deleteTaskAction(taskId: string): Promise<void> {
