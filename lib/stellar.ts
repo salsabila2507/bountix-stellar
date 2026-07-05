@@ -7,6 +7,7 @@ import {
   TransactionBuilder,
   BASE_FEE,
   Networks,
+  Account,
   Horizon,
   rpc,
   Operation,
@@ -173,7 +174,16 @@ export async function invokeSorobanWithKeypair(
 
   const networkPassphrase = Networks.TESTNET;
   const server = new rpc.Server(SOROBAN_RPC_URL);
-  const sourceAccount = await server.getAccount(kp.publicKey());
+  const rpcAccount = await server.getAccount(kp.publicKey());
+  // Use a Number-safe Account built from Horizon's numeric sequence.
+  // stellar-sdk v15+ returns indefinite-length sequence strings from
+  // rpc.Server.Account that overflow Number.round; rebuilding via
+  // the simpler Account class avoids the overflow during
+  // TransactionBuilder / assembleTransaction construction.
+  const sourceAccount = new Account(
+    rpcAccount.accountId(),
+    rpcAccount.sequenceNumber(),
+  );
 
   const tx = new TransactionBuilder(sourceAccount, {
     fee: BASE_FEE,
