@@ -160,8 +160,12 @@ export async function decideApplicationAction(
   applicationId: string,
   decision: "accepted" | "rejected",
 ) {
-  if (!isUuid(applicationId)) return;
-  if (decision !== "accepted" && decision !== "rejected") return;
+  if (decision !== "accepted" && decision !== "rejected") {
+    throw new Error("Invalid decision");
+  }
+  if (!isUuid(applicationId)) {
+    throw new Error("Invalid application id");
+  }
   const { supabase, user, profile } = await loadActor();
   if (!user) redirect("/login");
 
@@ -171,7 +175,7 @@ export async function decideApplicationAction(
     .eq("id", applicationId)
     .maybeSingle();
 
-  if (!app) return;
+  if (!app) throw new Error("Application not found");
 
   const { data: task } = await supabase
     .from("tasks")
@@ -180,12 +184,18 @@ export async function decideApplicationAction(
     .maybeSingle();
 
   const isAdmin = profile?.role === "admin";
-  if (!task || (task.creator_id !== user.id && !isAdmin)) return;
+  if (!task || (task.creator_id !== user.id && !isAdmin)) {
+    throw new Error("Not authorized to decide on this application");
+  }
 
-  await supabase
+  const { error } = await supabase
     .from("task_applications")
     .update({ status: decision })
     .eq("id", applicationId);
+
+  if (error) {
+    throw new Error(error.message || "Failed to update application status");
+  }
 
   if (app?.task_id) {
     revalidatePath(`/tasks/${app.task_id}`);
