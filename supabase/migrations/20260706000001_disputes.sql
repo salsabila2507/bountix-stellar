@@ -1,3 +1,5 @@
+create extension if not exists "pgcrypto";
+
 CREATE TABLE IF NOT EXISTS disputes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   submission_id uuid NOT NULL,
@@ -16,10 +18,12 @@ CREATE TABLE IF NOT EXISTS disputes (
 
 ALTER TABLE disputes ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "anyone can read disputes" ON disputes;
 CREATE POLICY "anyone can read disputes"
   ON disputes FOR SELECT
   USING (true);
 
+DROP POLICY IF EXISTS "authenticated can insert disputes" ON disputes;
 CREATE POLICY "authenticated can insert disputes"
   ON disputes FOR INSERT
   WITH CHECK (auth.role() = 'authenticated');
