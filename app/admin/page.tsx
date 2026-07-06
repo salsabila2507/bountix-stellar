@@ -11,6 +11,7 @@ import {
 import { createGlobalNotificationAction } from "@/app/admin/actions";
 import { SiteHeader } from "@/components/site-header";
 import { DbTaskCard } from "@/components/marketplace/db-task-card";
+import { DisputeCard } from "@/components/admin/dispute-card";
 import { createTranslator } from "@/lib/i18n";
 import { getRequestLocale } from "@/lib/i18n/server";
 import { getServerUser } from "@/lib/server-user";
@@ -60,6 +61,13 @@ async function loadAdmin() {
     .maybeSingle();
 
   if (profile?.role !== "admin") return { authorized: false as const };
+
+  const { data: openDisputes } = await supabase
+    .from("disputes")
+    .select("*")
+    .eq("status", "open")
+    .order("created_at", { ascending: false })
+    .limit(50);
 
   const { data: tasks } = await supabase
     .from("tasks")
@@ -157,11 +165,13 @@ async function loadAdmin() {
     authorized: true as const,
     officialTasks: (tasks ?? []) as DbTask[],
     profiles: (profiles ?? []) as AdminProfile[],
+    openDisputes: (openDisputes ?? []) as any[],
     stats: {
       pendingApps: pendingApps ?? 0,
       pendingSubs: pendingSubs ?? 0,
       totalTasks: totalTasks ?? 0,
       referralInvites: referralCount ?? referrals.length,
+      openDisputes: (openDisputes ?? []).length,
     },
     referralGroups,
   };
@@ -209,40 +219,56 @@ export default async function AdminHomePage() {
           </Link>
         </div>
 
-        <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-lg border-2 border-[#140625] bg-[#ffdd3d] p-5 shadow-[5px_5px_0_#140625]">
-            <p className="text-xs font-black uppercase text-[#5a3b66]">
-              Pending applicants
-            </p>
-            <p className="mt-2 text-3xl font-black text-[#140625]">
-              {result.stats.pendingApps}
-            </p>
+          <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-lg border-2 border-[#140625] bg-[#ffdd3d] p-5 shadow-[5px_5px_0_#140625]">
+              <p className="text-xs font-black uppercase text-[#5a3b66]">
+                Pending applicants
+              </p>
+              <p className="mt-2 text-3xl font-black text-[#140625]">
+                {result.stats.pendingApps}
+              </p>
+            </div>
+            <div className="rounded-lg border-2 border-[#140625] bg-[#38e7ff] p-5 shadow-[5px_5px_0_#140625]">
+              <p className="text-xs font-black uppercase text-[#5a3b66]">
+                Pending review
+              </p>
+              <p className="mt-2 text-3xl font-black text-[#140625]">
+                {result.stats.pendingSubs}
+              </p>
+            </div>
+            <div className="rounded-lg border-2 border-[#140625] bg-white p-5 shadow-[5px_5px_0_#140625]">
+              <p className="text-xs font-black uppercase text-[#5a3b66]">
+                Tasks total
+              </p>
+              <p className="mt-2 text-3xl font-black text-[#140625]">
+                {result.stats.totalTasks}
+              </p>
+            </div>
+            <div className="rounded-lg border-2 border-[#140625] bg-[#f1d8ff] p-5 shadow-[5px_5px_0_#140625]">
+              <p className="text-xs font-black uppercase text-[#5a3b66]">
+                Disputes
+              </p>
+              <p className="mt-2 text-3xl font-black text-[#140625]">
+                {result.stats.openDisputes}
+              </p>
+            </div>
           </div>
-          <div className="rounded-lg border-2 border-[#140625] bg-[#38e7ff] p-5 shadow-[5px_5px_0_#140625]">
-            <p className="text-xs font-black uppercase text-[#5a3b66]">
-              Pending review
-            </p>
-            <p className="mt-2 text-3xl font-black text-[#140625]">
-              {result.stats.pendingSubs}
-            </p>
-          </div>
-          <div className="rounded-lg border-2 border-[#140625] bg-white p-5 shadow-[5px_5px_0_#140625]">
-            <p className="text-xs font-black uppercase text-[#5a3b66]">
-              Tasks total
-            </p>
-            <p className="mt-2 text-3xl font-black text-[#140625]">
-              {result.stats.totalTasks}
-            </p>
-          </div>
-          <div className="rounded-lg border-2 border-[#140625] bg-[#f1d8ff] p-5 shadow-[5px_5px_0_#140625]">
-            <p className="text-xs font-black uppercase text-[#5a3b66]">
-              {t("admin.referrals.invites")}
-            </p>
-            <p className="mt-2 text-3xl font-black text-[#140625]">
-              {result.stats.referralInvites}
-            </p>
-          </div>
-        </div>
+
+          {result.openDisputes.length > 0 ? (
+            <div className="mt-10">
+              <h2 className="flex items-center gap-2 text-2xl font-black uppercase leading-none">
+                Open Disputes
+              </h2>
+              <p className="mt-2 text-sm font-bold leading-6 text-[#5a3b66]">
+                Workers disputed the rejection of their submissions. Review and resolve.
+              </p>
+              <div className="comic-card mt-6 grid gap-4 bg-white p-5 sm:p-6">
+                {result.openDisputes.map((d: any) => (
+                  <DisputeCard key={d.id} dispute={d} />
+                ))}
+              </div>
+            </div>
+          ) : null}
 
         <div className="mt-10">
           <h2 className="flex items-center gap-2 text-2xl font-black uppercase leading-none">

@@ -21,6 +21,7 @@ import { SubmissionForm } from "@/components/marketplace/submission-form";
 import { ApplyForm } from "@/components/marketplace/apply-form";
 import { SubmitWorkForm } from "@/components/marketplace/submit-work-form";
 import { WithdrawApplicationButton } from "@/components/marketplace/withdraw-application-button";
+import { RaiseDisputeButton } from "@/components/marketplace/raise-dispute-button";
 import { EscrowFundPanel } from "@/components/marketplace/escrow-fund-panel";
 import { SiteHeader } from "@/components/site-header";
 import {
@@ -679,6 +680,11 @@ function ApplicationStatusCard({
             <p className="mt-3 text-xs font-bold text-[#5a3b66]">
               {t("taskDetail.revisionRequested")}
             </p>
+          ) : null}
+          {latest.status === "rejected" ? (
+            <div className="mt-4">
+              <RaiseDisputeButton submissionId={latest.id} />
+            </div>
           ) : null}
         </div>
       ) : null}
