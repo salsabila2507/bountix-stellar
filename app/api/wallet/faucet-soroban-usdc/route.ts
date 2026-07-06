@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import {
   Keypair,
+  Account,
   TransactionBuilder,
   BASE_FEE,
   Networks,
@@ -13,17 +14,21 @@ import { STELLAR_USDC_ADDRESS } from "@/lib/payments"
 
 const SOROBAN_RPC_URL =
   process.env.NEXT_PUBLIC_SOROBAN_RPC_URL ?? "https://soroban-testnet.stellar.org"
-const ADMIN_KEY = process.env.PRIVATE_KEY
+const FAUCET_SECRET = process.env.USDC_FAUCET_SECRET
 const FAUCET_AMOUNT = BigInt(100) * BigInt(10_000_000) // 100 USDC in base units (7 decimals)
 
 export async function GET() {
-  return NextResponse.json({ configured: !!ADMIN_KEY, amount: "100", token: "Soroban USDC" })
+  if (!FAUCET_SECRET) {
+    return NextResponse.json({ configured: false, error: "USDC_FAUCET_SECRET not set" })
+  }
+  const kp = Keypair.fromSecret(FAUCET_SECRET)
+  return NextResponse.json({ configured: true, issuer: kp.publicKey(), amount: "100", token: "Soroban USDC" })
 }
 
 export async function POST(req: NextRequest) {
   try {
-    if (!ADMIN_KEY) {
-      return NextResponse.json({ error: "PRIVATE_KEY not configured" }, { status: 500 })
+    if (!FAUCET_SECRET) {
+      return NextResponse.json({ error: "USDC_FAUCET_SECRET not configured" }, { status: 500 })
     }
 
     const { publicKey } = await req.json()
@@ -31,9 +36,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing publicKey" }, { status: 400 })
     }
 
-    const adminKp = Keypair.fromSecret(ADMIN_KEY)
+    const faucetKp = Keypair.fromSecret(FAUCET_SECRET)
     const server = new rpc.Server(SOROBAN_RPC_URL)
-    const sourceAccount = await server.getAccount(adminKp.publicKey())
+    const rpcAccount = await server.getAccount(faucetKp.publicKey())
+    const sourceAccount = new Account(
+      rpcAccount.accountId(),
+      rpcAccount.sequenceNumber(),
+    )
 
     const tx = new TransactionBuilder(sourceAccount, {
       fee: BASE_FEE,
@@ -44,7 +53,7 @@ export async function POST(req: NextRequest) {
           contract: STELLAR_USDC_ADDRESS,
           function: "transfer",
           args: [
-            Address.fromString(adminKp.publicKey()).toScVal(),
+            Address.fromString(faucetKp.publicKey()).toScVal(),
             Address.fromString(publicKey).toScVal(),
             nativeToScVal(FAUCET_AMOUNT, { type: "i128" }),
           ],
@@ -60,7 +69,7 @@ export async function POST(req: NextRequest) {
     }
 
     const preparedTx = rpc.assembleTransaction(tx, simulation).build()
-    preparedTx.sign(adminKp)
+    preparedTx.sign(faucetKp)
 
     const result = await server.sendTransaction(preparedTx)
     if (result.status !== "PENDING" && result.status !== "DUPLICATE") {

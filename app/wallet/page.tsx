@@ -3,11 +3,13 @@
 import { useWallet, useSecretKey } from "@/lib/stellar/wallet-context"
 import { fetchPayments, type PaymentRecord } from "@/lib/stellar/horizon"
 import { getCachedSorobanTokenBalance } from "@/lib/stellar"
+import { buildChangeTrust, signTransaction, submitTransaction } from "@/lib/stellar/transactions"
+import { Asset } from "@stellar/stellar-sdk"
 import { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
 import { UnlockForm } from "@/components/wallet/unlock-form"
 import { ConfirmationModal } from "@/components/wallet/confirmation-modal"
-import { STELLAR_USDC_ADDRESS } from "@/lib/payments"
+import { STELLAR_USDC_ADDRESS, USDC_CLASSIC_ISSUER, USDC_CLASSIC_CODE } from "@/lib/payments"
 
 interface SorobanTransfer {
   txHash: string
@@ -36,6 +38,7 @@ export default function WalletDashboard() {
   const [loadingPayments, setLoadingPayments] = useState(false)
   const [sorobanUsdcBalance, setSorobanUsdcBalance] = useState<bigint | null>(null)
   const [balanceLoading, setBalanceLoading] = useState(false)
+  const [usdcModalOpen, setUsdcModalOpen] = useState(false)
   const [usdcLoading, setUsdcLoading] = useState(false)
   const [usdcError, setUsdcError] = useState<string | null>(null)
   const [usdcMessage, setUsdcMessage] = useState<string | null>(null)
@@ -89,7 +92,7 @@ export default function WalletDashboard() {
     }
   }, [publicKey, isLocked, fetchSorobanTransfers])
 
-  async function handleGetSorobanUsdc() {
+  async function handleGetSorobanUsdc(pincode: string) {
     setUsdcError(null)
     setUsdcMessage(null)
     setUsdcLoading(true)
@@ -101,6 +104,20 @@ export default function WalletDashboard() {
         await fetch(`https://friendbot.stellar.org?addr=${publicKey}`)
       } catch {
         // friendbot might fail if account already exists
+      }
+
+      // Check/add trustline for classic USDC
+      const hasTrust = account?.balances?.some(
+        (b) => b.asset_code === USDC_CLASSIC_CODE && b.asset_issuer === USDC_CLASSIC_ISSUER,
+      )
+      if (!hasTrust) {
+        const wallet = await requestUnlock(pincode)
+        const usdcAsset = new Asset(USDC_CLASSIC_CODE, USDC_CLASSIC_ISSUER)
+        const trustTx = await buildChangeTrust(wallet.secretKey, usdcAsset)
+        const signed = signTransaction(trustTx, wallet.secretKey)
+        await submitTransaction(signed)
+        await refreshAccount()
+        clearKey()
       }
 
       const resp = await fetch("/api/wallet/faucet-soroban-usdc", {
@@ -225,7 +242,7 @@ export default function WalletDashboard() {
           </div>
           <button
             className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg border-2 border-[#140625] bg-[#38e7ff] px-3 py-2 text-xs font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#ffdd3d] disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={handleGetSorobanUsdc}
+            onClick={() => setUsdcModalOpen(true)}
             disabled={usdcLoading}
           >
             {usdcLoading ? <span className="loading loading-spinner" /> : "Get 100 Soroban USDC"}
@@ -345,6 +362,22 @@ export default function WalletDashboard() {
           </div>
         )}
       </div>
+
+      <ConfirmationModal
+        open={usdcModalOpen}
+        title="Get Soroban USDC"
+        onConfirm={handleGetSorobanUsdc}
+        onCancel={() => {
+          setUsdcModalOpen(false)
+          setUsdcError(null)
+        }}
+        loading={usdcLoading}
+        error={usdcError}
+      >
+        <p className="text-sm font-bold text-[#3c214b]">
+          This will add a trustline for testnet USDC if needed, then request 100 Soroban USDC from the faucet.
+        </p>
+      </ConfirmationModal>
 
       <ConfirmationModal
         open={exportModalOpen}

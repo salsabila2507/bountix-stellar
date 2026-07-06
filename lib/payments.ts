@@ -15,9 +15,20 @@ export const CHAIN_NAME = "Stellar" as const;
 export const STELLAR_NETWORK_CHAIN_ID = 8453;
 export const STELLAR_TESTNET_CHAIN_ID = 84532;
 
-/** USDC Stellar Asset Contract on testnet. */
+/** Classic USDC issuer on testnet (the faucet account that issues testnet USDC). */
+export const USDC_CLASSIC_ISSUER =
+  process.env.NEXT_PUBLIC_USDC_ISSUER ??
+  "GCU6VGJXQR6RPRCQ2W55DEOAAFSKFE6UEQYTHCQ2P7NIA3UIS72NJEKL";
+
+/** Classic USDC asset code on testnet. */
+export const USDC_CLASSIC_CODE = "USDC";
+
+/**
+ * SAC contract ID for the USDC classic asset.
+ * Derivation: SAC(USDC, GCU6VGJXQR6RPRCQ2W55DEOAAFSKFE6UEQYTHCQ2P7NIA3UIS72NJEKL)
+ */
 export const STELLAR_USDC_ADDRESS =
-  "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
+  "CDXBKHJAEP5DZ7P5QUIZUDFFUFIUMPRVERPQE46KYKA6THW6R7DQMOH5";
 
 /** USDT Stellar Asset Contract on testnet (env override). */
 export const STELLAR_USDT_ADDRESS =
