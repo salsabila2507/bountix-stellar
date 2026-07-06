@@ -28,4 +28,5 @@ CREATE POLICY "authenticated can insert disputes"
   ON disputes FOR INSERT
   WITH CHECK (auth.role() = 'authenticated');
 
-ALTER TABLE disputes FORCE ROW LEVEL SECURITY;
+-- Admin/service_role bypass
+GRANT ALL ON public.disputes TO service_role;
