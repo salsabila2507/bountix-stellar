@@ -1,5 +1,6 @@
 import {
   Keypair,
+  Account,
   TransactionBuilder,
   BASE_FEE,
   Networks,
@@ -55,15 +56,19 @@ export async function adminQuery(
 
   const server = new rpc.Server(SOROBAN_RPC_URL);
   const kp = Keypair.random();
-  let sourceAccount;
+  let rpcAccount;
   try {
-    sourceAccount = await server.getAccount(kp.publicKey());
+    rpcAccount = await server.getAccount(kp.publicKey());
   } catch {
     await fetch(
       `https://friendbot.stellar.org?addr=${kp.publicKey()}`,
     ).then((r) => r.json());
-    sourceAccount = await server.getAccount(kp.publicKey());
+    rpcAccount = await server.getAccount(kp.publicKey());
   }
+  const sourceAccount = new Account(
+    rpcAccount.accountId(),
+    rpcAccount.sequenceNumber(),
+  );
 
   const tx = new TransactionBuilder(sourceAccount, {
     fee: BASE_FEE,
@@ -96,7 +101,11 @@ export async function adminInvoke(
 
   const kp = Keypair.fromSecret(ADMIN_KEY);
   const server = new rpc.Server(SOROBAN_RPC_URL);
-  const sourceAccount = await server.getAccount(kp.publicKey());
+  const rpcAccount = await server.getAccount(kp.publicKey());
+  const sourceAccount = new Account(
+    rpcAccount.accountId(),
+    rpcAccount.sequenceNumber(),
+  );
 
   // Log args for debugging
   console.log("adminInvoke", functionName, JSON.stringify(args));
