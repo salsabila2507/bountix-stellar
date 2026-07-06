@@ -34,7 +34,7 @@ GRANT ALL ON public.disputes TO authenticated;
 `
 
 export async function GET() {
-  const url = process.env.DATABASE_URL
+  const url = process.env.DATABASE_URL  
   if (!url) {
     return NextResponse.json(
       { error: "DATABASE_URL not set. Open Supabase dashboard → SQL Editor → paste supabase/migrations/20260706000001_disputes.sql" },
@@ -42,8 +42,9 @@ export async function GET() {
     )
   }
 
-  const pool = new Pool({ connectionString: url, connectionTimeoutMillis: 10000 })
+  const pool = new Pool({ connectionString: url, connectionTimeoutMillis: 10000, max: 1 })
   try {
+    await pool.query("SELECT 1")
     await pool.query(SQL)
     return NextResponse.json({ ok: true, message: "disputes table ready" })
   } catch (e: any) {
