@@ -3,9 +3,12 @@
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { Asset } from "@stellar/stellar-sdk"
 import { useWallet } from "@/lib/stellar/wallet-context"
 import { hasWallet, importAndStoreWallet } from "@/lib/stellar/wallet-store"
 import { friendbotFund } from "@/lib/stellar/horizon"
+import { buildChangeTrust, signTransaction, submitTransaction } from "@/lib/stellar/transactions"
+import { USDC_CLASSIC_ISSUER, USDC_CLASSIC_CODE } from "@/lib/payments"
 
 async function saveWalletAddress(address: string): Promise<void> {
   try {
@@ -41,6 +44,7 @@ export default function WalletSignup() {
   const [importedKey, setImportedKey] = useState<string>("")
   const [loading, setLoading] = useState(false)
   const [publicKey, setPublicKey] = useState<string | null>(null)
+  const [secretKeyBuf, setSecretKeyBuf] = useState<string | null>(null)
   const [fundMessage, setFundMessage] = useState<string | null>(null)
 
   if (!isLoaded) {
@@ -119,10 +123,24 @@ export default function WalletSignup() {
                     setFundMessage("Created without funding. You can fund the wallet later.")
                     console.warn("Friendbot responded:", text)
                   }
+                  // Add USDC trustline automatically
+                  if (secretKeyBuf) {
+                    try {
+                      const usdcAsset = new Asset(USDC_CLASSIC_CODE, USDC_CLASSIC_ISSUER)
+                      const trustTx = await buildChangeTrust(secretKeyBuf, usdcAsset)
+                      const signed = signTransaction(trustTx, secretKeyBuf)
+                      await submitTransaction(signed)
+                      setFundMessage(prev => (prev ?? "") + " + USDC trustline added.")
+                    } catch (tlErr: any) {
+                      console.warn("Failed to add USDC trustline:", tlErr)
+                      setFundMessage(prev => (prev ?? "") + " (trustline skipped: " + tlErr.message + ")")
+                    }
+                  }
                 } catch {
                   setFundMessage("Created without funding. You can fund the wallet later.")
                   console.warn("Friendbot unreachable")
                 }
+                setSecretKeyBuf(null) // clear from memory
                 setStep("done")
               }}
             >
@@ -286,6 +304,7 @@ export default function WalletSignup() {
                       pincode,
                     )
                     setPublicKey(wallet.publicKey)
+                    setSecretKeyBuf(wallet.secretKey)
                     setImportedKey(wallet.secretKey)
                     saveWalletAddress(wallet.publicKey)
                     setStep("done")
@@ -373,6 +392,7 @@ export default function WalletSignup() {
                 try {
                   const wallet = await createWallet(pincode)
                   setPublicKey(wallet.publicKey)
+                  setSecretKeyBuf(wallet.secretKey)
                   saveWalletAddress(wallet.publicKey)
                   setStep("confirm")
                 } catch (err: any) {
