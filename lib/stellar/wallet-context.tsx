@@ -1,12 +1,11 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
+import { createClient } from "@/utils/supabase/client"
 import {
-  hasWallet,
-  getPublicKey,
+  getPublicKey as storeGetPublicKey,
   createAndStoreWallet,
   unlockWallet,
-  clearWallet,
   type WalletAccount,
 } from "./wallet-store"
 import { fetchAccount, type AccountInfo } from "./horizon"
@@ -14,6 +13,7 @@ import { fetchAccount, type AccountInfo } from "./horizon"
 interface WalletContextType {
   isLoaded: boolean
   isLocked: boolean
+  userId: string | null
   publicKey: string | null
   account: AccountInfo | null
   createWallet: (pincode: string) => Promise<WalletAccount>
@@ -27,16 +27,36 @@ const WalletContext = createContext<WalletContextType | null>(null)
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false)
   const [isLocked, setIsLocked] = useState(true)
+  const [userId, setUserId] = useState<string | null>(null)
   const [publicKey, setPublicKey] = useState<string | null>(null)
   const [account, setAccount] = useState<AccountInfo | null>(null)
 
   useEffect(() => {
-    const pk = getPublicKey()
-    if (pk) {
-      setPublicKey(pk)
-      setIsLocked(true)
-    }
-    setIsLoaded(true)
+    const supabase = createClient()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const uid = session?.user?.id ?? null
+      setUserId(uid)
+      if (uid) {
+        const pk = storeGetPublicKey(uid)
+        if (pk) {
+          setPublicKey(pk)
+          setIsLocked(true)
+        }
+      }
+      setIsLoaded(true)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const uid = session?.user?.id ?? null
+      setUserId(uid)
+      if (!uid) {
+        setPublicKey(null)
+        setIsLocked(true)
+        setAccount(null)
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
   const refreshAccount = useCallback(async () => {
@@ -56,18 +76,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [publicKey, isLocked, refreshAccount])
 
   const createWallet = useCallback(async (pincode: string) => {
-    const wallet = await createAndStoreWallet(pincode)
+    const wallet = await createAndStoreWallet(pincode, userId)
     setPublicKey(wallet.publicKey)
     setIsLocked(false)
     return wallet
-  }, [])
+  }, [userId])
 
   const unlock = useCallback(async (pincode: string) => {
-    const wallet = await unlockWallet(pincode)
+    const wallet = await unlockWallet(pincode, userId)
     setPublicKey(wallet.publicKey)
     setIsLocked(false)
     return wallet
-  }, [])
+  }, [userId])
 
   const lock = useCallback(() => {
     setIsLocked(true)
@@ -78,6 +98,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       value={{
         isLoaded,
         isLocked,
+        userId,
         publicKey,
         account,
         createWallet,

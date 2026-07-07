@@ -24,17 +24,17 @@ async function saveWalletAddress(address: string): Promise<void> {
 
 export default function WalletSignup() {
   const router = useRouter()
-  const { createWallet, isLoaded } = useWallet()
+  const { createWallet, isLoaded, userId } = useWallet()
   const [initialCheckDone, setInitialCheckDone] = useState(false)
 
   useEffect(() => {
     if (isLoaded && !initialCheckDone) {
       setInitialCheckDone(true)
-      if (hasWallet()) {
+      if (hasWallet(userId)) {
         router.replace("/wallet")
       }
     }
-  }, [isLoaded, initialCheckDone, router])
+  }, [isLoaded, initialCheckDone, router, userId])
   const [pincode, setPincode] = useState("")
   const [confirmPincode, setConfirmPincode] = useState("")
   const [mode, setMode] = useState<"create" | "import">("create")
@@ -302,6 +302,7 @@ export default function WalletSignup() {
                     const wallet = await importAndStoreWallet(
                       importSecret.trim(),
                       pincode,
+                      userId,
                     )
                     setPublicKey(wallet.publicKey)
                     setSecretKeyBuf(wallet.secretKey)

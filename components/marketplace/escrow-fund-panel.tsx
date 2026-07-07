@@ -25,7 +25,6 @@ import {
 } from "@/lib/payments";
 import { markTaskEscrowFundedAction } from "@/app/tasks/actions";
 import { useWallet, useSecretKey } from "@/lib/stellar/wallet-context";
-import { hasWallet as walletExists } from "@/lib/stellar/wallet-store";
 import {
   ensureTestnetXlm,
   escrowExistsOnChain,
@@ -250,7 +249,7 @@ export function EscrowFundPanel({
   }
 
   // State: no wallet saved yet → CTA to create one
-  if (isLoaded && !walletExists()) {
+  if (isLoaded && !publicKey) {
     return (
       <div className="comic-card-soft bg-[#f2e6ff] p-5">
         <p className="comic-chip bg-[#7c3cff] text-white">

@@ -2,8 +2,9 @@
 
 import { Keypair } from "@stellar/stellar-sdk"
 
-const WALLET_KEY = "stellar_wallet"
-const SALT_KEY = "stellar_salt"
+function walletKey(userId?: string | null): string {
+  return userId ? `stellar_wallet_${userId}` : "stellar_wallet"
+}
 
 function base64ToArrayBuffer(base64: string): ArrayBuffer {
   const binary = atob(base64)
@@ -81,39 +82,38 @@ export async function decryptSecret(encryptedPayload: string, pincode: string): 
   return new TextDecoder().decode(decrypted)
 }
 
-export function saveWallet(publicKey: string, encryptedPayload: string): void {
+export function saveWallet(publicKey: string, encryptedPayload: string, userId?: string | null): void {
   if (typeof window === "undefined") return
-  localStorage.setItem(WALLET_KEY, JSON.stringify({ publicKey, encrypted: encryptedPayload }))
+  localStorage.setItem(walletKey(userId), JSON.stringify({ publicKey, encrypted: encryptedPayload }))
 }
 
-export function getStoredWallet(): StoredWallet | null {
+export function getStoredWallet(userId?: string | null): StoredWallet | null {
   if (typeof window === "undefined") return null
-  const raw = localStorage.getItem(WALLET_KEY)
+  const raw = localStorage.getItem(walletKey(userId))
   if (!raw) return null
   return JSON.parse(raw)
 }
 
-export function clearWallet(): void {
+export function clearWallet(userId?: string | null): void {
   if (typeof window === "undefined") return
-  localStorage.removeItem(WALLET_KEY)
-  localStorage.removeItem(SALT_KEY)
+  localStorage.removeItem(walletKey(userId))
 }
 
-export function hasWallet(): boolean {
-  return getStoredWallet() !== null
+export function hasWallet(userId?: string | null): boolean {
+  return getStoredWallet(userId) !== null
 }
 
-export async function unlockWallet(pincode: string): Promise<WalletAccount> {
-  const stored = getStoredWallet()
+export async function unlockWallet(pincode: string, userId?: string | null): Promise<WalletAccount> {
+  const stored = getStoredWallet(userId)
   if (!stored) throw new Error("No wallet found")
   const secretKey = await decryptSecret(stored.encrypted, pincode)
   return { publicKey: stored.publicKey, secretKey }
 }
 
-export async function createAndStoreWallet(pincode: string): Promise<WalletAccount> {
+export async function createAndStoreWallet(pincode: string, userId?: string | null): Promise<WalletAccount> {
   const { publicKey, secretKey } = generateWallet()
   const encrypted = await encryptSecret(secretKey, pincode)
-  saveWallet(publicKey, encrypted)
+  saveWallet(publicKey, encrypted, userId)
   return { publicKey, secretKey }
 }
 
@@ -124,6 +124,7 @@ export async function createAndStoreWallet(pincode: string): Promise<WalletAccou
 export async function importAndStoreWallet(
   secretKey: string,
   pincode: string,
+  userId?: string | null,
 ): Promise<WalletAccount> {
   const trimmed = secretKey.trim()
   if (!trimmed.startsWith("S") || trimmed.length < 50) {
@@ -135,18 +136,18 @@ export async function importAndStoreWallet(
   } catch (e) {
     throw new Error("Invalid Stellar secret key — wrong format or checksum.")
   }
-  if (hasWallet()) {
+  if (hasWallet(userId)) {
     throw new Error(
       "A wallet already exists in this browser. Use Export first if you want to replace it.",
     )
   }
   const publicKey = kp.publicKey()
   const encrypted = await encryptSecret(trimmed, pincode)
-  saveWallet(publicKey, encrypted)
+  saveWallet(publicKey, encrypted, userId)
   return { publicKey, secretKey: trimmed }
 }
 
-export function getPublicKey(): string | null {
-  const stored = getStoredWallet()
+export function getPublicKey(userId?: string | null): string | null {
+  const stored = getStoredWallet(userId)
   return stored?.publicKey ?? null
 }
