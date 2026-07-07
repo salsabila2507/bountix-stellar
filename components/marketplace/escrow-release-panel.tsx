@@ -4,36 +4,18 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
-  ExternalLink,
   LoaderCircle,
   TriangleAlert,
-  Wallet,
+  Send,
 } from "lucide-react";
-import {
-  stellarTxUrl,
-  usdcToUnits,
-  uuidToBytes32,
-  escrowContractDeployed,
-} from "@/lib/escrow";
 import { formatUsdc } from "@/lib/payments";
-import {
-  releaseEscrowAction,
-  releaseRaffleEscrowAction,
-} from "@/app/applications/actions";
 import {
   DEFAULT_LOCALE,
   createTranslator,
   type Locale,
 } from "@/lib/i18n";
-import { invokeSorobanAdmin } from "@/lib/stellar";
 
-type Phase =
-  | "idle"
-  | "assigning"
-  | "releasing"
-  | "recording"
-  | "done"
-  | "error";
+type Phase = "idle" | "requesting" | "done" | "error";
 
 export function EscrowReleasePanel({
   submissionId,
@@ -52,22 +34,10 @@ export function EscrowReleasePanel({
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string>("");
-  const [assignTxHash, setAssignTxHash] = useState<string>("");
-  const [releaseTxHash, setReleaseTxHash] = useState<string>("");
+  const [alreadyRequested, setAlreadyRequested] = useState(false);
 
-  const busy =
-    phase === "assigning" ||
-    phase === "releasing" ||
-    phase === "recording";
-
-  async function handleRelease() {
+  async function handleRequestRelease() {
     setError("");
-
-    if (!escrowContractDeployed()) {
-      setPhase("error");
-      setError("Escrow contract not yet deployed on Stellar");
-      return;
-    }
 
     if (!workerWalletAddress) {
       setPhase("error");
@@ -75,31 +45,17 @@ export function EscrowReleasePanel({
       return;
     }
 
+    setPhase("requesting");
     try {
-      const taskKey = uuidToBytes32(taskId);
-
-      setPhase("assigning");
-      const assignHash = await invokeSorobanAdmin(
-        "assign_worker",
-        [taskKey, workerWalletAddress],
-      );
-      setAssignTxHash(assignHash);
-
-      setPhase("releasing");
-      const releaseHash = await invokeSorobanAdmin(
-        "release_escrow",
-        [taskKey],
-      );
-      setReleaseTxHash(releaseHash);
-
-      setPhase("recording");
-      const result = await releaseEscrowAction(
-        submissionId,
-        assignHash,
-        releaseHash,
-      );
-      if (!result.ok) throw new Error(result.message);
-
+      const resp = await fetch("/api/escrow/request-release", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ submissionId, taskId, workerWalletAddress }),
+      });
+      if (!resp.ok) {
+        const data = await resp.json();
+        throw new Error(data.error || "Request failed");
+      }
       setPhase("done");
       router.refresh();
     } catch (err) {
@@ -112,45 +68,21 @@ export function EscrowReleasePanel({
 
   if (phase === "done") {
     return (
-      <div className="mt-4 rounded-lg border-2 border-[#140625] bg-[#dff7e6] p-4 shadow-[3px_3px_0_#140625]">
+      <div className="mt-4 rounded-lg border-2 border-[#140625] bg-[#f2e6ff] p-4 shadow-[3px_3px_0_#140625]">
         <div className="flex items-start gap-3">
           <CheckCircle2
             aria-hidden="true"
-            className="mt-0.5 h-5 w-5 text-[#1f6b3a]"
+            className="mt-0.5 h-5 w-5 text-[#7c3cff]"
           />
           <div>
             <h3 className="font-black text-[#140625]">
-              {t("escrow.release.doneTitle")}
+              {t("escrow.release.requestedTitle")}
             </h3>
             <p className="mt-1 text-sm font-semibold leading-6 text-[#3c214b]">
-              {t("escrow.release.doneBody", {
+              {t("escrow.release.requestedBody", {
                 amount: formatUsdc(rewardAmount ?? 0),
               })}
             </p>
-            <div className="mt-3 space-y-2">
-              {assignTxHash ? (
-                <a
-                  href={stellarTxUrl(assignTxHash)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 break-all rounded-lg border-2 border-[#140625] bg-white px-3 py-2 text-xs font-black text-[#7c3cff] shadow-[2px_2px_0_#140625] transition hover:bg-[#38e7ff]"
-                >
-                  <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
-                  {t("escrow.release.viewAssignTx")}
-                </a>
-              ) : null}
-              {releaseTxHash ? (
-                <a
-                  href={stellarTxUrl(releaseTxHash)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block inline-flex items-center gap-2 break-all rounded-lg border-2 border-[#140625] bg-white px-3 py-2 text-xs font-black text-[#7c3cff] shadow-[2px_2px_0_#140625] transition hover:bg-[#38e7ff]"
-                >
-                  <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
-                  {t("escrow.release.viewReleaseTx")}
-                </a>
-              ) : null}
-            </div>
           </div>
         </div>
       </div>
@@ -160,10 +92,10 @@ export function EscrowReleasePanel({
   return (
     <div className="mt-4 rounded-lg border-2 border-[#140625] bg-[#f2e6ff] p-4 shadow-[3px_3px_0_#140625]">
       <div className="flex items-start gap-3">
-        <Wallet aria-hidden="true" className="mt-0.5 h-5 w-5 text-[#7c3cff]" />
+        <Send aria-hidden="true" className="mt-0.5 h-5 w-5 text-[#7c3cff]" />
         <div className="flex-1">
           <h3 className="font-black text-[#140625]">
-            {t("escrow.release.title")}
+            {t("escrow.release.requestTitle")}
           </h3>
           <p className="mt-1 text-sm font-semibold leading-6 text-[#3c214b]">
             {t("escrow.release.body", {
@@ -183,28 +115,24 @@ export function EscrowReleasePanel({
 
           <button
             type="button"
-            onClick={handleRelease}
-            disabled={busy}
-            className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-lg border-2 border-[#140625] bg-[#23b26d] px-4 py-2 text-xs font-black uppercase text-white shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#1f6b3a] disabled:cursor-not-allowed disabled:bg-[#c9c0d3] disabled:text-[#5a3b66]"
+            onClick={handleRequestRelease}
+            disabled={phase === "requesting"}
+            className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-lg border-2 border-[#140625] bg-[#7c3cff] px-4 py-2 text-xs font-black uppercase text-white shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#5a2bbf] disabled:cursor-not-allowed disabled:bg-[#c9c0d3] disabled:text-[#5a3b66]"
           >
-            {busy ? (
+            {phase === "requesting" ? (
               <>
                 <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" />
-                {phase === "assigning"
-                  ? t("escrow.release.assigning")
-                  : phase === "releasing"
-                    ? t("escrow.release.releasing")
-                    : t("escrow.fund.recording")}
+                {t("escrow.release.requesting")}
               </>
             ) : (
               <>
-                <Wallet aria-hidden="true" className="h-4 w-4" />
-                {t("escrow.release.button")}
+                <Send aria-hidden="true" className="h-4 w-4" />
+                {t("escrow.release.requestButton")}
               </>
             )}
           </button>
           <p className="mt-2 text-xs font-bold text-[#5a3b66]">
-            {t("escrow.release.prompts")}
+            {t("escrow.release.requestPrompts")}
           </p>
         </div>
       </div>
