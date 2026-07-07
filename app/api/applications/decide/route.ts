@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     const { data: app } = await admin
       .from("task_applications")
-      .select("task_id")
+      .select("task_id, applicant_id")
       .eq("id", applicationId)
       .maybeSingle();
     if (!app) {
@@ -65,43 +65,36 @@ export async function POST(request: NextRequest) {
 
     // Notifications
     try {
-      const { data: fullApp } = await admin
-        .from("task_applications")
-        .select("applicant_id")
-        .eq("id", applicationId)
+      const { data: t } = await admin
+        .from("tasks")
+        .select("title, creator_id")
+        .eq("id", app.task_id)
         .maybeSingle();
-      if (fullApp) {
-        const { data: t } = await admin
-          .from("tasks")
-          .select("title, creator_id")
-          .eq("id", app.task_id)
-          .maybeSingle();
-        const title = (t as { title: string; creator_id: string } | null)?.title ?? "task";
-        const creatorId = (t as { title: string; creator_id: string } | null)?.creator_id ?? null;
+      const title = (t as { title: string; creator_id: string } | null)?.title ?? "task";
+      const creatorId = (t as { title: string; creator_id: string } | null)?.creator_id ?? null;
 
+      await admin.from("notifications").insert({
+        user_id: app.applicant_id,
+        title: decision === "accepted" ? "Application accepted" : "Application rejected",
+        body:
+          decision === "accepted"
+            ? `Your application for "${title}" was accepted. Submit your work anytime.`
+            : `Your application for "${title}" was rejected. Don't worry — apply to other tasks.`,
+        type: "personal",
+        link_url:
+          decision === "accepted"
+            ? `/dashboard/applications#${applicationId}`
+            : `/tasks/${app.task_id}`,
+      });
+
+      if (decision === "accepted" && creatorId && creatorId !== app.applicant_id) {
         await admin.from("notifications").insert({
-          user_id: fullApp.applicant_id,
-          title: decision === "accepted" ? "Application accepted" : "Application rejected",
-          body:
-            decision === "accepted"
-              ? `Your application for "${title}" was accepted. Submit your work anytime.`
-              : `Your application for "${title}" was rejected. Don't worry — apply to other tasks.`,
+          user_id: creatorId,
+          title: "Worker ready to deliver",
+          body: `An applicant was accepted for "${title}". They can submit work from their dashboard.`,
           type: "personal",
-          link_url:
-            decision === "accepted"
-              ? `/dashboard/applications#${applicationId}`
-              : `/tasks/${app.task_id}`,
+          link_url: `/dashboard/tasks/${app.task_id}/applicants`,
         });
-
-        if (decision === "accepted" && creatorId && creatorId !== fullApp.applicant_id) {
-          await admin.from("notifications").insert({
-            user_id: creatorId,
-            title: "Worker ready to deliver",
-            body: `An applicant was accepted for "${title}". They can submit work from their dashboard.`,
-            type: "personal",
-            link_url: `/dashboard/tasks/${app.task_id}/applicants`,
-          });
-        }
       }
     } catch (err) {
       console.error("[decide] notification error:", err);

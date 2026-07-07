@@ -4,7 +4,6 @@ import { ArrowLeft, ExternalLink, Trophy } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import {
   EscrowRaffleReleasePanel,
-  EscrowReleasePanel,
 } from "@/components/marketplace/escrow-release-panel";
 import { TaskChatBox } from "@/components/marketplace/task-chat-box";
 import {
@@ -541,21 +540,6 @@ export default async function ApplicantsPage({ params }: RouteParams) {
                               <p className="mt-3 rounded-lg border-2 border-dashed border-[#140625] bg-[#f2e6ff] p-3 text-sm font-bold text-[#3c214b]">
                                 {s.review_notes}
                               </p>
-                            ) : null}
-
-                            {s.status === "approved" &&
-                            task.payment_method === "escrow_stellar" &&
-                            !s.released_at &&
-                            (!isRaffle ||
-                              (task.raffle_winner_count === 1 &&
-                                s.raffle_winner_position !== null)) ? (
-                              <EscrowReleasePanel
-                                submissionId={s.id}
-                                taskId={task.id}
-                                rewardAmount={task.reward_amount}
-                                workerWalletAddress={applicant ? applicant.wallet_address : null}
-                                locale={locale}
-                              />
                             ) : null}
 
                             {s.released_at ? (

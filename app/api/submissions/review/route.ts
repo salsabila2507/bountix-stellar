@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/utils/supabase/server";
 import { isUuid } from "@/lib/tasks";
+import { uuidToBytes32, ESCROW_CONTRACT_ADDRESS } from "@/lib/escrow";
+import { adminInvoke } from "@/lib/stellar-admin";
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,7 +38,7 @@ export async function POST(request: NextRequest) {
 
     const { data: row } = await admin
       .from("task_submissions")
-      .select("task_id")
+      .select("task_id, submitter_id")
       .eq("id", submissionId)
       .maybeSingle();
 
@@ -46,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     const { data: task } = await admin
       .from("tasks")
-      .select("creator_id")
+      .select("creator_id, payment_method, reward_amount")
       .eq("id", row.task_id)
       .maybeSingle();
 
@@ -67,33 +69,63 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Auto-release escrow if approved and task uses escrow
+    let assignTxHash: string | null = null;
+    let releaseTxHash: string | null = null;
+    if (decision === "approved" && task.payment_method === "escrow_stellar" && ESCROW_CONTRACT_ADDRESS) {
+      try {
+        const { data: worker } = await admin
+          .from("profiles")
+          .select("wallet_address")
+          .eq("id", row.submitter_id)
+          .maybeSingle();
+
+        if (worker?.wallet_address) {
+          const taskKey = uuidToBytes32(row.task_id);
+
+          assignTxHash = await adminInvoke("assign_worker", [
+            taskKey,
+            worker.wallet_address,
+          ]);
+
+          releaseTxHash = await adminInvoke("release_escrow", [taskKey]);
+
+          await admin
+            .from("task_submissions")
+            .update({
+              assign_tx_hash: assignTxHash,
+              assigned_at: new Date().toISOString(),
+              release_tx_hash: releaseTxHash,
+              released_at: new Date().toISOString(),
+            })
+            .eq("id", submissionId);
+        }
+      } catch (err) {
+        console.error("[review] auto-release error:", err);
+      }
+    }
+
     // Notification
     try {
-      const { data: sub } = await admin
-        .from("task_submissions")
-        .select("submitter_id")
-        .eq("id", submissionId)
-        .maybeSingle();
       const { data: t } = await admin
         .from("tasks")
         .select("title")
         .eq("id", row.task_id)
         .maybeSingle();
-      const subRow = sub as { submitter_id: string } | null;
       const title = (t as { title: string } | null)?.title ?? "task";
-      if (subRow?.submitter_id) {
+      if (row.submitter_id) {
         const verbMap: Record<string, string> = {
           approved: "Your work was approved",
           rejected: "Your work was rejected",
           revision_requested: "Revisions requested",
         };
         const bodyMap: Record<string, string> = {
-          approved: `Great work! "${title}" was approved.`,
+          approved: `Great work! "${title}" was approved.${releaseTxHash ? " Escrow payment has been released to your wallet." : ""}`,
           rejected: `"${title}" was rejected.${review_notes ? ` Reason: ${review_notes}` : ""}`,
           revision_requested: `"${title}" needs changes.${review_notes ? ` ${review_notes}` : ""}`,
         };
         await admin.from("notifications").insert({
-          user_id: subRow.submitter_id,
+          user_id: row.submitter_id,
           title: verbMap[decision] ?? "Submission reviewed",
           body: bodyMap[decision] ?? `Your submission for "${title}" was reviewed.`,
           type: "personal",
@@ -104,7 +136,7 @@ export async function POST(request: NextRequest) {
       console.error("[review] notification error:", err);
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, assignTxHash, releaseTxHash });
   } catch (err) {
     console.error("[review] unhandled error:", err);
     return NextResponse.json(
