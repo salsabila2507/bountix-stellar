@@ -12,6 +12,7 @@ import { createGlobalNotificationAction } from "@/app/admin/actions";
 import { SiteHeader } from "@/components/site-header";
 import { DbTaskCard } from "@/components/marketplace/db-task-card";
 import { DisputeCard } from "@/components/admin/dispute-card";
+import { EscrowReleaseAdminPanel, type ReleaseRequest } from "@/components/admin/escrow-release-admin-panel";
 import { createTranslator } from "@/lib/i18n";
 import { getRequestLocale } from "@/lib/i18n/server";
 import { getServerUser } from "@/lib/server-user";
@@ -68,6 +69,30 @@ async function loadAdmin() {
     .eq("status", "open")
     .order("created_at", { ascending: false })
     .limit(50);
+
+  // Escrow release requests: approved submissions (not yet released) on escrow tasks
+  const { data: releaseSubs } = await supabase
+    .from("task_submissions")
+    .select(`
+      id, task_id, created_at, submitter_id,
+      tasks!inner(title, reward_amount, payment_method),
+      profiles!task_submissions_submitter_id_fkey(username, display_name, wallet_address)
+    `)
+    .eq("status", "approved")
+    .is("released_at", null)
+    .eq("tasks.payment_method", "escrow_stellar")
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  const releaseRequests: ReleaseRequest[] = (releaseSubs ?? []).map((s: any) => ({
+    submissionId: s.id,
+    taskId: s.task_id,
+    taskTitle: s.tasks?.title ?? "Untitled",
+    rewardAmount: s.tasks?.reward_amount ?? 0,
+    workerName: s.profiles?.display_name ?? s.profiles?.username ?? "Unknown",
+    workerWalletAddress: s.profiles?.wallet_address ?? null,
+    createdAt: s.created_at,
+  }));
 
   const { data: tasks } = await supabase
     .from("tasks")
@@ -166,12 +191,14 @@ async function loadAdmin() {
     officialTasks: (tasks ?? []) as DbTask[],
     profiles: (profiles ?? []) as AdminProfile[],
     openDisputes: (openDisputes ?? []) as any[],
+    releaseRequests,
     stats: {
       pendingApps: pendingApps ?? 0,
       pendingSubs: pendingSubs ?? 0,
       totalTasks: totalTasks ?? 0,
       referralInvites: referralCount ?? referrals.length,
       openDisputes: (openDisputes ?? []).length,
+      releaseRequests: releaseRequests.length,
     },
     referralGroups,
   };
@@ -219,7 +246,7 @@ export default async function AdminHomePage() {
           </Link>
         </div>
 
-          <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <div className="rounded-lg border-2 border-[#140625] bg-[#ffdd3d] p-5 shadow-[5px_5px_0_#140625]">
               <p className="text-xs font-black uppercase text-[#5a3b66]">
                 Pending applicants
@@ -252,6 +279,14 @@ export default async function AdminHomePage() {
                 {result.stats.openDisputes}
               </p>
             </div>
+            <div className="rounded-lg border-2 border-[#140625] bg-[#dff7e6] p-5 shadow-[5px_5px_0_#140625]">
+              <p className="text-xs font-black uppercase text-[#5a3b66]">
+                Pending Releases
+              </p>
+              <p className="mt-2 text-3xl font-black text-[#140625]">
+                {result.stats.releaseRequests}
+              </p>
+            </div>
           </div>
 
           {result.openDisputes.length > 0 ? (
@@ -269,6 +304,21 @@ export default async function AdminHomePage() {
               </div>
             </div>
           ) : null}
+
+        {result.releaseRequests.length > 0 ? (
+          <div className="mt-10">
+            <h2 className="flex items-center gap-2 text-2xl font-black uppercase leading-none">
+              <Wallet aria-hidden="true" className="h-5 w-5" />
+              Escrow Releases
+            </h2>
+            <p className="mt-2 text-sm font-bold leading-6 text-[#5a3b66]">
+              Approved submissions waiting for escrow release. Review and release payment to workers.
+            </p>
+            <div className="mt-6">
+              <EscrowReleaseAdminPanel requests={result.releaseRequests} />
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-10">
           <h2 className="flex items-center gap-2 text-2xl font-black uppercase leading-none">
