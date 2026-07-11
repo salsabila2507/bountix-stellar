@@ -147,7 +147,34 @@ export async function sendTaskMessageAction(
     message_text: messageText,
   });
 
-  if (error) return;
+  if (error) {
+    console.error("[sendTaskMessageAction] insert error:", error);
+    return;
+  }
+
+  // Notify receiver
+  if (scope.receiverId) {
+    try {
+      const { data: task } = await supabase
+        .from("tasks")
+        .select("title")
+        .eq("id", scope.taskId)
+        .maybeSingle();
+      const title = (task as { title: string } | null)?.title ?? "task";
+      const preview = messageText.length > 100 ? messageText.slice(0, 100) + "…" : messageText;
+      await supabase.from("notifications").insert({
+        user_id: scope.receiverId,
+        title: "New message",
+        body: `"${title}": ${preview}`,
+        type: "personal",
+        link_url: scope.applicationId
+          ? `/dashboard/applications#${scope.applicationId}`
+          : `/tasks/${scope.taskId}`,
+      });
+    } catch {
+      // non-critical
+    }
+  }
 
   revalidateMessagePaths(scope.taskId);
 }

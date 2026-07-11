@@ -167,7 +167,7 @@ export async function SiteHeader() {
                   href="/signup"
                   className="min-h-10 px-3 py-2 text-xs sm:px-4 sm:text-sm"
                 >
-                  {t("common.joinWaitlist")}
+                  {t("common.signup")}
                 </ButtonLink>
               </>
             )}
@@ -238,7 +238,7 @@ export async function SiteHeader() {
                       href="/signup"
                       className="rounded-lg border-2 border-[#140625] bg-[#ffdd3d] px-3 py-2 text-sm font-black text-[#140625] shadow-[3px_3px_0_#140625] transition hover:bg-[#38e7ff]"
                     >
-                      {t("common.joinWaitlist")}
+                      {t("common.signup")}
                     </Link>
                     <Link
                       href="/login"

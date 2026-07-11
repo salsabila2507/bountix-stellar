@@ -41,7 +41,6 @@ async function deriveKey(pincode: string, salt: Uint8Array): Promise<CryptoKey> 
 export interface StoredWallet {
   publicKey: string
   encrypted: string
-  iv: string
 }
 
 export interface WalletAccount {
@@ -91,7 +90,11 @@ export function getStoredWallet(userId?: string | null): StoredWallet | null {
   if (typeof window === "undefined") return null
   const raw = localStorage.getItem(walletKey(userId))
   if (!raw) return null
-  return JSON.parse(raw)
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
 }
 
 export function clearWallet(userId?: string | null): void {
@@ -111,6 +114,9 @@ export async function unlockWallet(pincode: string, userId?: string | null): Pro
 }
 
 export async function createAndStoreWallet(pincode: string, userId?: string | null): Promise<WalletAccount> {
+  if (hasWallet(userId)) {
+    throw new Error("A wallet already exists.")
+  }
   const { publicKey, secretKey } = generateWallet()
   const encrypted = await encryptSecret(secretKey, pincode)
   saveWallet(publicKey, encrypted, userId)

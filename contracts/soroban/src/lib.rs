@@ -376,6 +376,60 @@ impl BountixEscrow {
         token.transfer(&env.current_contract_address(), &escrow.worker, &net);
     }
 
+    /// Release half of the escrow to the worker and the other half back to the
+    /// payer. Useful for dispute resolutions where both parties split the funds.
+    /// Admin only.
+    pub fn release_half_escrow(env: Env, task_id: BytesN<32>) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("not initialized");
+        admin.require_auth();
+
+        let key = DataKey::Escrow(task_id.clone());
+        let mut escrow: Escrow = env
+            .storage()
+            .instance()
+            .get(&key)
+            .expect("escrow not found");
+        if escrow.state != EscrowState::Funded {
+            panic!("escrow not funded");
+        }
+        if escrow.kind != EscrowKind::Single {
+            panic!("not single escrow");
+        }
+        if escrow.worker == env.current_contract_address() {
+            panic!("worker not assigned");
+        }
+
+        escrow.state = EscrowState::Released;
+        env.storage().instance().set(&key, &escrow);
+
+        let fee_bps: i128 = env
+            .storage()
+            .instance()
+            .get(&DataKey::FeeBps)
+            .unwrap_or(DEFAULT_FEE_BPS);
+        let half = escrow.amount / 2;
+        let remainder = escrow.amount - half;
+        let fee = (half * fee_bps) / BPS_DENOMINATOR;
+        let worker_net = half - fee;
+
+        let token = TokenClient::new(&env, &escrow.token);
+        let treasury: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Treasury)
+            .expect("not initialized");
+
+        if fee > 0 {
+            token.transfer(&env.current_contract_address(), &treasury, &fee);
+        }
+        token.transfer(&env.current_contract_address(), &escrow.worker, &worker_net);
+        token.transfer(&env.current_contract_address(), &escrow.payer, &remainder);
+    }
+
     /// Release a raffle escrow to all winners. Admin only.
     pub fn release_raffle_escrow(env: Env, task_id: BytesN<32>) {
         let admin: Address = env

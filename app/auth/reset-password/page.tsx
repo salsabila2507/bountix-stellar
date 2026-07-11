@@ -12,18 +12,6 @@ export const metadata = {
 };
 
 export default async function ResetPasswordPage() {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      redirect("/dashboard/profile");
-    }
-  } catch {
-    // Env missing — render form anyway so the page doesn't break.
-  }
-
   return (
     <main className="comic-page min-h-screen overflow-hidden text-[#140625]">
       <div className="container-page py-8 sm:py-10">

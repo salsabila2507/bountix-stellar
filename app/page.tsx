@@ -49,7 +49,7 @@ const actionVariantClasses = {
 
 const guestHeaderActions = [
   { href: "/login", labelKey: "common.login", variant: "white" },
-  { href: "/signup", labelKey: "common.joinWaitlist", variant: "pink" },
+  { href: "/signup", labelKey: "common.signup", variant: "pink" },
 ] satisfies LandingAction[];
 
 const authedHeaderSecondaryActions = [
@@ -60,7 +60,7 @@ const authedHeaderSecondaryActions = [
 ] satisfies LandingAction[];
 
 const guestHeroActions = [
-  { href: "/signup", labelKey: "common.joinWaitlist", variant: "pink" },
+  { href: "/signup", labelKey: "common.signup", variant: "pink" },
   { href: "/tasks", labelKey: "common.browseTasks", variant: "yellow" },
 ] satisfies LandingAction[];
 
@@ -70,7 +70,7 @@ const authedHeroActions = [
 ] satisfies LandingAction[];
 
 const guestFinalActions = [
-  { href: "/signup", labelKey: "common.joinWaitlist", variant: "pink" },
+  { href: "/signup", labelKey: "common.signup", variant: "pink" },
   { href: "/login", labelKey: "common.login", variant: "white" },
   { href: "/tasks", labelKey: "common.browseTasks", variant: "yellow" },
 ] satisfies LandingAction[];

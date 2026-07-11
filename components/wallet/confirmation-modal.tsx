@@ -32,7 +32,11 @@ export function ConfirmationModal({
       setLocalError("Pincode must be at least 4 characters")
       return
     }
-    await onConfirm(pincode)
+    try {
+      await onConfirm(pincode)
+    } catch {
+      // parent error handled via error prop
+    }
     setPincode("")
   }
 

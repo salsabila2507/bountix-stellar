@@ -18,6 +18,7 @@ import {
   type RewardMode,
 } from "@/lib/tasks";
 import { ESCROW_CONTRACT_ADDRESS, MIN_ESCROW_USDC } from "@/lib/escrow";
+import { notifyAdmins } from "@/lib/notifications";
 import { isPaymentToken, type PaymentToken } from "@/lib/payments";
 import type { TaskFormState } from "@/lib/task-form-state";
 
@@ -285,6 +286,11 @@ export async function createTaskAction(
   revalidatePath("/dashboard/tasks");
 
   if (inserted?.id) {
+    notifyAdmins({
+      title: "New task posted",
+      body: `"${data.title}" was posted by @${profile.username ?? "a user"}.`,
+      link_url: `/admin`,
+    });
     return {
       status: "success",
       message: "Task created.",

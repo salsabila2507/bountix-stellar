@@ -30,7 +30,7 @@ export default function WalletSignup() {
   useEffect(() => {
     if (isLoaded && !initialCheckDone) {
       setInitialCheckDone(true)
-      if (hasWallet(userId)) {
+      if (hasWallet(userId) || hasWallet(null)) {
         router.replace("/wallet")
       }
     }

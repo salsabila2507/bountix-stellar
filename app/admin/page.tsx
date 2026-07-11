@@ -7,6 +7,7 @@ import {
   Gift,
   Megaphone,
   Users,
+  Wallet,
 } from "lucide-react";
 import { createGlobalNotificationAction } from "@/app/admin/actions";
 import { SiteHeader } from "@/components/site-header";
@@ -305,20 +306,18 @@ export default async function AdminHomePage() {
             </div>
           ) : null}
 
-        {result.releaseRequests.length > 0 ? (
-          <div className="mt-10">
-            <h2 className="flex items-center gap-2 text-2xl font-black uppercase leading-none">
-              <Wallet aria-hidden="true" className="h-5 w-5" />
-              Escrow Releases
-            </h2>
-            <p className="mt-2 text-sm font-bold leading-6 text-[#5a3b66]">
-              Approved submissions waiting for escrow release. Review and release payment to workers.
-            </p>
-            <div className="mt-6">
-              <EscrowReleaseAdminPanel requests={result.releaseRequests} />
-            </div>
+        <div className="mt-10">
+          <h2 className="flex items-center gap-2 text-2xl font-black uppercase leading-none">
+            <Wallet aria-hidden="true" className="h-5 w-5" />
+            Escrow Releases
+          </h2>
+          <p className="mt-2 text-sm font-bold leading-6 text-[#5a3b66]">
+            Approved submissions waiting for escrow release. Review and release payment to workers.
+          </p>
+          <div className="mt-6">
+            <EscrowReleaseAdminPanel requests={result.releaseRequests} />
           </div>
-        ) : null}
+        </div>
 
         <div className="mt-10">
           <h2 className="flex items-center gap-2 text-2xl font-black uppercase leading-none">

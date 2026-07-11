@@ -33,15 +33,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const uid = session?.user?.id ?? null
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      const uid = user?.id ?? null
       setUserId(uid)
-      if (uid) {
-        const pk = storeGetPublicKey(uid)
-        if (pk) {
-          setPublicKey(pk)
-          setIsLocked(true)
-        }
+      const pk = storeGetPublicKey(uid) || storeGetPublicKey(null)
+      if (pk) {
+        setPublicKey(pk)
+        setIsLocked(true)
       }
       setIsLoaded(true)
     })

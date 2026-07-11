@@ -1,4 +1,4 @@
-import { createClient } from "@/utils/supabase/server";
+import { createClient, createAdminClient } from "@/utils/supabase/server";
 
 export const NOTIFICATION_LIMIT = 50;
 
@@ -105,5 +105,33 @@ export async function getUnreadNotificationCount() {
     return data?.unreadCount ?? 0;
   } catch {
     return 0;
+  }
+}
+
+/** Insert a notification for every admin user. Best-effort, never throws. */
+export async function notifyAdmins(notification: {
+  title: string;
+  body: string;
+  link_url?: string;
+}) {
+  try {
+    const admin = createAdminClient();
+    const { data: admins } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("role", "admin");
+    const adminIds = admins?.map((a) => a.id) ?? [];
+    if (adminIds.length === 0) return;
+    await admin.from("notifications").insert(
+      adminIds.map((id) => ({
+        user_id: id,
+        title: notification.title,
+        body: notification.body,
+        link_url: notification.link_url ?? null,
+        type: "personal",
+      })),
+    );
+  } catch {
+    // non-critical
   }
 }

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { ESCROW_CONTRACT_ADDRESS } from "@/lib/escrow";
 import { isUuid } from "@/lib/tasks";
+import { notifyAdmins } from "@/lib/notifications";
 import type {
   ApplyState,
   SubmitState,
@@ -74,7 +75,7 @@ export async function applyToTaskAction(
   const { error } = await supabase.from("task_applications").insert({
     task_id: taskId,
     applicant_id: user.id,
-    proposal: message || null,
+    message: message || null,
     status: "pending",
   });
 
@@ -93,6 +94,18 @@ export async function applyToTaskAction(
 
   // Notify the task creator that someone applied.
   await notifyTaskCreatorAction(taskId, user.id);
+
+  // Notify admins
+  const { data: taskTitle } = await supabase
+    .from("tasks")
+    .select("title")
+    .eq("id", taskId)
+    .maybeSingle();
+  notifyAdmins({
+    title: "New application",
+    body: `A user applied to "${(taskTitle as { title: string } | null)?.title ?? "a task"}".`,
+    link_url: `/dashboard/tasks/${taskId}/applicants`,
+  });
 
   revalidatePath(`/tasks/${taskId}`);
   revalidatePath(`/dashboard/applications`);
@@ -366,7 +379,6 @@ export async function createSubmissionAction(
     task_id: app.task_id,
     application_id: applicationId,
     submitter_id: user.id,
-    applicant_id: user.id,
     delivery_url,
     notes: notes || null,
     status: "pending_review",

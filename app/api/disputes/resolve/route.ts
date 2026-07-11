@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/utils/supabase/server";
+import { adminInvoke } from "@/lib/stellar-admin";
+import { uuidToBytes32 } from "@/lib/escrow";
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,16 +63,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // If accepted, reinstate the submission to pending_review so admin can approve
-    if (resolution === "accepted") {
-      const { error: subErr } = await admin
-        .from("task_submissions")
-        .update({ status: "pending_review", review_notes: "Dispute accepted — re-review" })
-        .eq("id", dispute.submission_id);
-
-      if (subErr) {
-        console.error("[dispute/resolve] failed to reopen submission:", subErr);
+    // On-chain escrow action
+    try {
+      const taskKey = uuidToBytes32(dispute.task_id);
+      if (resolution === "accepted") {
+        await adminInvoke("release_half_escrow", [taskKey]);
+        const { error: subErr } = await admin
+          .from("task_submissions")
+          .update({ status: "pending_review", review_notes: "Dispute accepted — re-review" })
+          .eq("id", dispute.submission_id);
+        if (subErr) {
+          console.error("[dispute/resolve] failed to reopen submission:", subErr);
+        }
+      } else {
+        await adminInvoke("refund_escrow", [taskKey]);
       }
+    } catch (err) {
+      console.error("[dispute/resolve] escrow invoke error:", err);
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Escrow invoke failed" },
+        { status: 500 },
+      );
     }
 
     try {

@@ -40,6 +40,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
 
+    // Verify submission is approved
+    const { data: submission } = await admin
+      .from("task_submissions")
+      .select("status")
+      .eq("id", submissionId)
+      .maybeSingle();
+    if (!submission) {
+      return NextResponse.json({ error: "Submission not found" }, { status: 404 });
+    }
+    if (submission.status !== "approved") {
+      return NextResponse.json({ error: "Submission must be approved first" }, { status: 400 });
+    }
+
     // Check if already requested
     const { data: existing } = await admin
       .from("notifications")
