@@ -1,0 +1,91 @@
+"use client"
+
+import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from "react"
+import TencentCloudChat from "@tencentcloud/lite-chat"
+import { createClient } from "@/utils/supabase/client"
+
+const SDKAPPID = 331419296728
+
+type ChatContextValue = {
+  chat: typeof TencentCloudChat | null
+  isReady: boolean
+}
+
+const ChatContext = createContext<ChatContextValue>({
+  chat: null,
+  isReady: false,
+})
+
+export function useChat() {
+  return useContext(ChatContext)
+}
+
+export function ChatProvider({ children }: { children: ReactNode }) {
+  const chatRef = useRef<ReturnType<typeof TencentCloudChat.create> | null>(null)
+  const [isReady, setIsReady] = useState(false)
+
+  useEffect(() => {
+    const supabase = createClient()
+    let cancelled = false
+
+    async function init(userId: string) {
+      try {
+        const res = await fetch("/api/chat/usersig")
+        if (!res.ok || cancelled) return
+        const { userSig } = await res.json()
+        if (cancelled) return
+
+        const chat = chatRef.current!
+        await chat.login({ userID: userId, userSig })
+      } catch (err) {
+        console.error("[chat] login error:", err)
+      }
+    }
+
+    function cleanup() {
+      cancelled = true
+      if (chatRef.current) {
+        chatRef.current.destroy()
+        chatRef.current = null
+      }
+      setIsReady(false)
+    }
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (cancelled || !user) return
+
+      const chat = TencentCloudChat.create({ SDKAppID })
+      chat.setLogLevel(1)
+      chatRef.current = chat
+
+      chat.on(TencentCloudChat.EVENT.SDK_READY, () => {
+        if (!cancelled) setIsReady(true)
+      })
+      chat.on(TencentCloudChat.EVENT.SDK_NOT_READY, () => {
+        if (!cancelled) setIsReady(false)
+      })
+
+      init(user.id)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (cancelled) return
+      if (event === "SIGNED_OUT" || !session?.user) {
+        cleanup()
+      } else if (event === "SIGNED_IN" && chatRef.current) {
+        init(session.user.id)
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+      cleanup()
+    }
+  }, [])
+
+  return (
+    <ChatContext.Provider value={{ chat: chatRef.current, isReady }}>
+      {children}
+    </ChatContext.Provider>
+  )
+}

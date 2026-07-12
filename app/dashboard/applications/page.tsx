@@ -272,8 +272,7 @@ export default async function MyApplicationsPage() {
                     applicationId={a.id}
                     submissionId={latestSubmissionId}
                     currentUserId={currentUserId}
-                    messages={chatMessages}
-                    senderProfilesById={profilesByUser}
+                    otherUserId={tasksById.get(a.task_id)?.creator_id ?? null}
                     locale={locale}
                   />
                 </article>

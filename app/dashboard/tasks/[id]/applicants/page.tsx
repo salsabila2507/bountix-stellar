@@ -429,8 +429,7 @@ export default async function ApplicantsPage({ params }: RouteParams) {
                     applicationId={app.id}
                     submissionId={latestSubmissionId}
                     currentUserId={currentUserId}
-                    messages={chatMessages}
-                    senderProfilesById={profilesByUser}
+                    otherUserId={app.applicant_id}
                     locale={locale}
                   />
 
