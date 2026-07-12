@@ -20,7 +20,6 @@ type ChatMessage = {
 type TaskChatBoxProps = {
   taskId: string
   applicationId: string
-  submissionId?: string | null
   currentUserId: string
   otherUserId: string | null
   locale: Locale
@@ -50,7 +49,6 @@ export function TaskChatBox({
   const [loading, setLoading] = useState(true)
   const listRef = useRef<HTMLDivElement>(null)
 
-  // Fetch history + listen for new messages
   useEffect(() => {
     if (!chat || !isReady || !otherUserId) {
       setLoading(false)
@@ -62,13 +60,10 @@ export function TaskChatBox({
 
     async function load() {
       try {
-        const res = await chat.getMessageList({
-          conversationID,
-          count: 30,
-        })
+        const res = await chat.getMessageList({ conversationID, count: 30 })
         if (cancelled) return
 
-        const items: ChatMessage[] = res.data.messageList
+        const items: ChatMessage[] = (res.data.messageList as any[])
           .filter((m: any) => {
             if (m.type !== TencentCloudChat.TYPES.MSG_TEXT) return false
             try {
@@ -120,7 +115,7 @@ export function TaskChatBox({
               })
             }
           } catch {
-            // ignore
+            // skip
           }
         }
       }
@@ -134,7 +129,6 @@ export function TaskChatBox({
     }
   }, [chat, isReady, otherUserId, applicationId])
 
-  // Auto-scroll to bottom
   useEffect(() => {
     if (listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight
@@ -156,7 +150,6 @@ export function TaskChatBox({
       await chat.sendMessage(message)
       setText("")
 
-      // Notify via server action
       fetch("/api/task-messages/notify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -183,10 +176,7 @@ export function TaskChatBox({
         </p>
       </div>
 
-      <div
-        ref={listRef}
-        className="mt-3 grid max-h-80 gap-3 overflow-y-auto pr-1"
-      >
+      <div ref={listRef} className="mt-3 grid max-h-80 gap-3 overflow-y-auto pr-1">
         {loading ? (
           <div className="flex items-center justify-center py-6">
             <LoaderCircle aria-hidden="true" className="h-5 w-5 animate-spin text-[#7c3cff]" />
@@ -250,9 +240,7 @@ export function TaskChatBox({
           </button>
         </div>
       ) : otherUserId ? (
-        <p className="mt-4 text-xs font-bold text-[#5a3b66]">
-          Connecting to chat...
-        </p>
+        <p className="mt-4 text-xs font-bold text-[#5a3b66]">Connecting to chat...</p>
       ) : null}
     </section>
   )

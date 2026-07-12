@@ -6,8 +6,10 @@ import { createClient } from "@/utils/supabase/client"
 
 const SDKAPPID = 331419296728
 
+type ChatSDK = ReturnType<typeof TencentCloudChat.create>
+
 type ChatContextValue = {
-  chat: typeof TencentCloudChat | null
+  chat: ChatSDK | null
   isReady: boolean
 }
 

@@ -18,10 +18,7 @@ import {
   type DbApplication,
   type DbSubmission,
 } from "@/lib/applications";
-import {
-  TASK_MESSAGE_COLUMNS,
-  type DbTaskMessage,
-} from "@/lib/task-messages";
+
 
 export const dynamic = "force-dynamic";
 
@@ -78,30 +75,8 @@ async function loadMine() {
     subsByApp.set(s.application_id, arr);
   }
 
-  let taskMessages: DbTaskMessage[] = [];
-  if (taskIds.length > 0) {
-    const { data: messages } = await supabase
-      .from("task_messages")
-      .select(TASK_MESSAGE_COLUMNS)
-      .in("task_id", taskIds)
-      .order("created_at", { ascending: true });
-    taskMessages = (messages ?? []) as DbTaskMessage[];
-  }
-
-  const messagesByApp = new Map<string, DbTaskMessage[]>();
-  for (const message of taskMessages) {
-    if (!message.application_id) continue;
-    const arr = messagesByApp.get(message.application_id) ?? [];
-    arr.push(message);
-    messagesByApp.set(message.application_id, arr);
-  }
-
   const profileIds = new Set<string>([user.id]);
   for (const task of tasksById.values()) profileIds.add(task.creator_id);
-  for (const message of taskMessages) {
-    profileIds.add(message.sender_id);
-    if (message.receiver_id) profileIds.add(message.receiver_id);
-  }
 
   const profilesByUser = new Map<string, ProfileLite>();
   if (profileIds.size > 0) {
@@ -116,7 +91,6 @@ async function loadMine() {
     myApps,
     tasksById,
     subsByApp,
-    messagesByApp,
     profilesByUser,
     currentUserId: user.id,
   };
@@ -132,7 +106,6 @@ export default async function MyApplicationsPage() {
     myApps,
     tasksById,
     subsByApp,
-    messagesByApp,
     profilesByUser,
     currentUserId,
   } = data;
@@ -181,7 +154,6 @@ export default async function MyApplicationsPage() {
             {myApps.map((a) => {
               const task = tasksById.get(a.task_id);
               const subs = subsByApp.get(a.id) ?? [];
-              const chatMessages = messagesByApp.get(a.id) ?? [];
               const latestSubmissionId = subs[0]?.id ?? null;
               return (
                 <article
@@ -270,7 +242,6 @@ export default async function MyApplicationsPage() {
                   <TaskChatBox
                     taskId={a.task_id}
                     applicationId={a.id}
-                    submissionId={latestSubmissionId}
                     currentUserId={currentUserId}
                     otherUserId={tasksById.get(a.task_id)?.creator_id ?? null}
                     locale={locale}

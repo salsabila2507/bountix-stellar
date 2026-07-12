@@ -30,10 +30,7 @@ import {
   type DbApplication,
   type DbSubmission,
 } from "@/lib/applications";
-import {
-  TASK_MESSAGE_COLUMNS,
-  type DbTaskMessage,
-} from "@/lib/task-messages";
+
 
 export const dynamic = "force-dynamic";
 
@@ -104,30 +101,11 @@ async function loadPage(taskId: string) {
     subsByApp.set(s.application_id, arr);
   }
 
-  const { data: messages } = await supabase
-    .from("task_messages")
-    .select(TASK_MESSAGE_COLUMNS)
-    .eq("task_id", taskId)
-    .order("created_at", { ascending: true });
-
-  const taskMessages = (messages ?? []) as DbTaskMessage[];
-  const messagesByApp = new Map<string, DbTaskMessage[]>();
-  for (const message of taskMessages) {
-    if (!message.application_id) continue;
-    const arr = messagesByApp.get(message.application_id) ?? [];
-    arr.push(message);
-    messagesByApp.set(message.application_id, arr);
-  }
-
   const profileIds = new Set<string>([
     userId,
     (task as DbTask).creator_id,
     ...applicantIds,
   ]);
-  for (const message of taskMessages) {
-    profileIds.add(message.sender_id);
-    if (message.receiver_id) profileIds.add(message.receiver_id);
-  }
 
   const profilesByUser = new Map<string, ProfileLite>();
   if (profileIds.size > 0) {
@@ -146,7 +124,6 @@ async function loadPage(taskId: string) {
     profilesByUser,
     submissions: subs,
     subsByApp,
-    messagesByApp,
     currentUserId: userId,
   };
 }
@@ -167,7 +144,6 @@ export default async function ApplicantsPage({ params }: RouteParams) {
     profilesByUser,
     submissions,
     subsByApp,
-    messagesByApp,
     currentUserId,
   } = data;
   const isRaffle = task.reward_mode === "raffle";
@@ -328,7 +304,6 @@ export default async function ApplicantsPage({ params }: RouteParams) {
                 ["Website", socialLinks.website],
               ].filter((entry): entry is [string, string] => Boolean(entry[1]));
               const subs = subsByApp.get(app.id) ?? [];
-              const chatMessages = messagesByApp.get(app.id) ?? [];
               const latestSubmissionId = subs[0]?.id ?? null;
 
               return (
@@ -427,7 +402,6 @@ export default async function ApplicantsPage({ params }: RouteParams) {
                   <TaskChatBox
                     taskId={task.id}
                     applicationId={app.id}
-                    submissionId={latestSubmissionId}
                     currentUserId={currentUserId}
                     otherUserId={app.applicant_id}
                     locale={locale}
