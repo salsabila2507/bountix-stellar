@@ -28,16 +28,16 @@ type ChatImageInfo = {
 }
 
 type ChatSdkMessage = {
-  ID: string
+  ID?: string
   conversationID?: string
-  from: string
-  type: string
+  from?: string
+  type?: string
   cloudCustomData?: string
-  payload: {
+  payload?: {
     text?: string
     imageInfoArray?: ChatImageInfo[]
   }
-  timestamp: number
+  timestamp?: number
 }
 
 type SendMessageResult = {
@@ -60,18 +60,29 @@ function getMessageApplicationId(message: ChatSdkMessage): string | null {
 }
 
 function getImageUrl(message: ChatSdkMessage): string | null {
-  const imageInfo = message.payload.imageInfoArray?.find((info) => info.url || info.imageUrl)
+  const imageInfoArray = Array.isArray(message.payload?.imageInfoArray)
+    ? message.payload.imageInfoArray
+    : []
+  const imageInfo = imageInfoArray.find((info) => info.url || info.imageUrl)
   return imageInfo?.url || imageInfo?.imageUrl || null
 }
 
 function toChatMessage(message: ChatSdkMessage): ChatMessage | null {
-  if (message.type === TencentCloudChat.TYPES.MSG_TEXT && typeof message.payload.text === "string") {
+  const id = message.ID
+  const senderId = message.from
+  if (!id || !senderId) return null
+
+  const timestamp = typeof message.timestamp === "number"
+    ? message.timestamp
+    : Math.floor(Date.now() / 1000)
+
+  if (message.type === TencentCloudChat.TYPES.MSG_TEXT && typeof message.payload?.text === "string") {
     return {
-      id: message.ID,
-      senderId: message.from,
+      id,
+      senderId,
       kind: "text",
       text: message.payload.text,
-      timestamp: message.timestamp,
+      timestamp,
     }
   }
 
@@ -79,11 +90,11 @@ function toChatMessage(message: ChatSdkMessage): ChatMessage | null {
     const imageUrl = getImageUrl(message)
     if (!imageUrl) return null
     return {
-      id: message.ID,
-      senderId: message.from,
+      id,
+      senderId,
       kind: "image",
       imageUrl,
-      timestamp: message.timestamp,
+      timestamp,
     }
   }
 
@@ -153,7 +164,8 @@ export function TaskChatBox({
         const res = await chatClient.getMessageList({ conversationID })
         if (cancelled) return
 
-        const items: ChatMessage[] = (res.data.messageList as ChatSdkMessage[])
+        const messageList = Array.isArray(res.data?.messageList) ? res.data.messageList : []
+        const items: ChatMessage[] = (messageList as ChatSdkMessage[])
           .filter((m) => getMessageApplicationId(m) === applicationId)
           .map(toChatMessage)
           .filter((m): m is ChatMessage => m !== null)
