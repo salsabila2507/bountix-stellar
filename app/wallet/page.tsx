@@ -26,6 +26,21 @@ type SorobanHistoryResponse = {
   transfers?: SorobanTransfer[]
 }
 
+interface EscrowPayout {
+  id: string
+  taskId: string
+  taskTitle: string
+  amount: number
+  amountLabel: string
+  token: string
+  txHash: string | null
+  releasedAt: string | null
+}
+
+type EscrowHistoryResponse = {
+  payouts?: EscrowPayout[]
+}
+
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback
 }
@@ -53,6 +68,8 @@ export default function WalletDashboard() {
   const [usdcMessage, setUsdcMessage] = useState<string | null>(null)
   const [sorobanTransfers, setSorobanTransfers] = useState<SorobanTransfer[]>([])
   const [transfersLoading, setTransfersLoading] = useState(false)
+  const [escrowPayouts, setEscrowPayouts] = useState<EscrowPayout[]>([])
+  const [escrowPayoutsLoading, setEscrowPayoutsLoading] = useState(false)
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [exportPincodeError, setExportPincodeError] = useState<string | null>(null)
   const [exportedKey, setExportedKey] = useState<string | null>(null)
@@ -133,6 +150,28 @@ export default function WalletDashboard() {
       })
     }
   }, [publicKey, isLocked, fetchSorobanTransfers])
+
+  const fetchEscrowPayouts = useCallback(async () => {
+    if (!publicKey) return
+    setEscrowPayoutsLoading(true)
+    try {
+      const res = await fetch(`/api/wallet/escrow-history?publicKey=${publicKey}`)
+      const data = (await res.json()) as EscrowHistoryResponse
+      setEscrowPayouts(data.payouts ?? [])
+    } catch {
+      setEscrowPayouts([])
+    } finally {
+      setEscrowPayoutsLoading(false)
+    }
+  }, [publicKey])
+
+  useEffect(() => {
+    if (publicKey && !isLocked) {
+      queueMicrotask(() => {
+        void fetchEscrowPayouts()
+      })
+    }
+  }, [publicKey, isLocked, fetchEscrowPayouts])
 
   useEffect(() => {
     if (publicKey) {
@@ -320,6 +359,64 @@ export default function WalletDashboard() {
         <Link href="/wallet/assets" className="comic-card p-6 text-center bg-[#f1d8ff] hover:-translate-y-0.5 transition">
           <h3 className="text-sm font-black text-[#140625]">Assets</h3>
         </Link>
+      </div>
+
+      <div className="comic-card p-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-black text-[#140625]">Bountix Escrow Payouts</h3>
+          <button
+            className="inline-flex min-h-8 items-center rounded-lg border-2 border-[#140625] bg-white px-2 py-1 text-xs font-black text-[#140625] shadow-[2px_2px_0_#140625] transition hover:bg-[#38e7ff]"
+            onClick={fetchEscrowPayouts}
+          >
+            ↻
+          </button>
+        </div>
+        {escrowPayoutsLoading ? (
+          <div className="flex justify-center py-4">
+            <span className="loading loading-spinner text-[#38e7ff]" />
+          </div>
+        ) : escrowPayouts.length === 0 ? (
+          <p className="text-sm font-bold text-[#5a3b66] text-center py-4">No escrow payouts yet</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b-2 border-[#140625] text-left text-xs font-black uppercase text-[#5a3b66]">
+                  <th className="pb-2 pr-4">Type</th>
+                  <th className="pb-2 pr-4">Amount</th>
+                  <th className="pb-2 pr-4">Task</th>
+                  <th className="pb-2 pr-4">Tx</th>
+                  <th className="pb-2">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {escrowPayouts.map((payout) => (
+                  <tr key={payout.id} className="border-b border-[#140625]/10">
+                    <td className="py-2 pr-4">
+                      <span className="rounded-md border-2 border-[#140625] bg-[#dff7e6] px-2 py-0.5 text-[0.65rem] font-black text-[#1f6b3a]">
+                        Received
+                      </span>
+                    </td>
+                    <td className="py-2 pr-4 font-bold text-[#140625]">{payout.amountLabel}</td>
+                    <td className="py-2 pr-4 text-xs font-bold text-[#5a3b66] max-w-[180px] truncate">
+                      <Link href={`/tasks/${payout.taskId}`} className="text-[#7c3cff] hover:underline">
+                        {payout.taskTitle}
+                      </Link>
+                    </td>
+                    <td className="py-2 pr-4 font-mono text-xs text-[#5a3b66] truncate max-w-[120px]">
+                      {payout.txHash ? (
+                        <a href={`https://stellar.expert/tx/${payout.txHash}`} target="_blank" rel="noreferrer" className="text-[#7c3cff] hover:underline">
+                          {payout.txHash.slice(0, 10)}…
+                        </a>
+                      ) : "-"}
+                    </td>
+                    <td className="py-2 text-xs text-[#5a3b66]">{payout.releasedAt ? new Date(payout.releasedAt).toLocaleDateString() : ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="comic-card p-6">

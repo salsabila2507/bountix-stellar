@@ -688,7 +688,7 @@ export async function releaseEscrowAction(
   const { data: task } = await supabase
     .from("tasks")
     .select(
-      "id, creator_id, payment_method, reward_amount, reward_mode, raffle_winner_count",
+      "id, creator_id, title, payment_method, reward_amount, reward_mode, raffle_winner_count",
     )
     .eq("id", submission.task_id)
     .maybeSingle();
@@ -765,21 +765,25 @@ export async function releaseEscrowAction(
     };
   }
 
-  // Notify the worker that they got paid
+  // Notify both sides that the escrow payout was completed.
   try {
-    const { data: t } = await supabase
-      .from("tasks")
-      .select("title")
-      .eq("id", task.id)
-      .maybeSingle();
-    const title = (t as { title: string } | null)?.title ?? "task";
-    await supabase.from("notifications").insert({
-      user_id: submission.submitter_id,
-      title: "Escrow released",
-      body: `Escrow for "${title}" has been released to your wallet. Net payout: see Stellar tx ${releaseTxHash.slice(0, 12)}…`,
-      type: "personal",
-      link_url: `/dashboard/applications#${submissionId}`,
-    });
+    const title = (task as { title?: string | null }).title ?? "task";
+    await Promise.all([
+      createUserNotification({
+        userId: submission.submitter_id,
+        title: "Escrow payout received",
+        body: `Escrow for "${title}" has reached your wallet. Net payout is visible in your Bountix wallet history. Stellar tx: ${releaseTxHash.slice(0, 12)}…`,
+        type: "escrow_released",
+        linkUrl: `/wallet#${releaseTxHash}`,
+      }),
+      createUserNotification({
+        userId: task.creator_id,
+        title: "Escrow released to worker",
+        body: `Escrow for "${title}" was released to the approved worker. Stellar tx: ${releaseTxHash.slice(0, 12)}…`,
+        type: "escrow_released",
+        linkUrl: `/dashboard/tasks/${task.id}/applicants#${submissionId}`,
+      }),
+    ]);
   } catch (err) {
     console.error("[releaseEscrowAction] notify error:", err);
   }
@@ -808,7 +812,7 @@ export async function releaseRaffleEscrowAction(
   const { data: task } = await supabase
     .from("tasks")
     .select(
-      "id, creator_id, payment_method, reward_mode, raffle_winner_count, escrow_contract_address",
+      "id, creator_id, title, payment_method, reward_mode, raffle_winner_count, escrow_contract_address",
     )
     .eq("id", taskId)
     .maybeSingle();
@@ -886,28 +890,30 @@ export async function releaseRaffleEscrowAction(
     };
   }
 
-  // Notify each winner
+  // Notify each winner and the task creator.
   try {
-    const { data: t } = await supabase
-      .from("tasks")
-      .select("title")
-      .eq("id", taskId)
-      .maybeSingle();
-    const title = (t as { title: string } | null)?.title ?? "task";
+    const title = (task as { title?: string | null }).title ?? "task";
     const { data: winnerSubs } = await supabase
       .from("task_submissions")
       .select("id, submitter_id")
       .in("id", winnerRows.map((w) => w.id));
     const list = (winnerSubs as { id: string; submitter_id: string }[]) ?? [];
-    for (const w of list) {
-      await supabase.from("notifications").insert({
-        user_id: w.submitter_id,
+    await Promise.all([
+      ...list.map((winner) => createUserNotification({
+        userId: winner.submitter_id,
+        title: "Raffle escrow payout received",
+        body: `Raffle escrow for "${title}" has reached your wallet. Net payout is visible in your Bountix wallet history. Stellar tx: ${releaseTxHash.slice(0, 12)}…`,
+        type: "escrow_released",
+        linkUrl: `/wallet#${releaseTxHash}`,
+      })),
+      createUserNotification({
+        userId: task.creator_id,
         title: "Raffle escrow released",
-        body: `Raffle escrow for "${title}" has been released to your wallet. See Stellar tx ${releaseTxHash.slice(0, 12)}…`,
-        type: "personal",
-        link_url: `/dashboard/applications#${w.id}`,
-      });
-    }
+        body: `Raffle escrow for "${title}" was released to ${list.length} winner(s). Stellar tx: ${releaseTxHash.slice(0, 12)}…`,
+        type: "escrow_released",
+        linkUrl: `/dashboard/tasks/${task.id}/applicants`,
+      }),
+    ]);
   } catch (err) {
     console.error("[releaseRaffleEscrowAction] notify error:", err);
   }
