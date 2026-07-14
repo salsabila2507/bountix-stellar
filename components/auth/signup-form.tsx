@@ -166,7 +166,7 @@ export function SignupForm({ referralCode }: { referralCode?: string }) {
         <div className="h-px flex-1 bg-[#140625]/20" />
       </div>
 
-      <OAuthButtons referralCode={referralCode} />
+      <OAuthButtons referralCode={referralCode} setupWalletAfterAuth />
 
       <p className="mt-4 text-center text-sm font-medium leading-6 text-[#5a3b66]">
         Already on Bountix?{" "}

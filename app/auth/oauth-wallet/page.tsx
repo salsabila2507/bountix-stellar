@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import {
@@ -20,13 +20,8 @@ async function saveWalletAddress(address: string): Promise<void> {
   }
 }
 
-function getErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
-}
-
 export default function OAuthWalletSetupPage() {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,8 +48,10 @@ export default function OAuthWalletSetupPage() {
           router.refresh();
         }
       } catch (error) {
+        console.warn("[oauth-wallet] wallet setup skipped", error);
         if (!cancelled) {
-          setError(getErrorMessage(error, "Could not prepare your wallet."));
+          router.replace("/dashboard/profile");
+          router.refresh();
         }
       }
     }
@@ -71,14 +68,10 @@ export default function OAuthWalletSetupPage() {
       <div className="comic-card w-full max-w-md bg-white p-6 text-center">
         <p className="comic-chip mx-auto w-fit bg-[#38e7ff]">Wallet</p>
         <h1 className="mt-4 text-2xl font-black">Preparing your wallet</h1>
-        {error ? (
-          <p className="mt-3 text-sm font-bold text-[#c42463]">{error}</p>
-        ) : (
-          <div className="mt-4 flex items-center justify-center gap-2 text-sm font-bold text-[#5a3b66]">
-            <span className="loading loading-spinner text-[#38e7ff]" />
-            Setting up your account...
-          </div>
-        )}
+        <div className="mt-4 flex items-center justify-center gap-2 text-sm font-bold text-[#5a3b66]">
+          <span className="loading loading-spinner text-[#38e7ff]" />
+          Setting up your account...
+        </div>
       </div>
     </main>
   );

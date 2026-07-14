@@ -4,7 +4,13 @@ import { useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 
-export function OAuthButtons({ referralCode }: { referralCode?: string }) {
+export function OAuthButtons({
+  referralCode,
+  setupWalletAfterAuth = false,
+}: {
+  referralCode?: string;
+  setupWalletAfterAuth?: boolean;
+}) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +32,9 @@ export function OAuthButtons({ referralCode }: { referralCode?: string }) {
     try {
       const supabase = createClient();
       const redirectUrl = new URL("/auth/callback", getRedirectBase());
-      redirectUrl.searchParams.set("next", "/auth/oauth-wallet");
+      if (setupWalletAfterAuth) {
+        redirectUrl.searchParams.set("next", "/auth/oauth-wallet");
+      }
       if (referralCode) {
         redirectUrl.searchParams.set("ref", referralCode);
       }
