@@ -93,7 +93,7 @@ export async function signupAction(
     };
   }
 
-  redirect("/dashboard/profile");
+  return { status: "success", message: "Account created." };
 }
 
 export async function loginAction(

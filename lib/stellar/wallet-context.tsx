@@ -32,26 +32,22 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [account, setAccount] = useState<AccountInfo | null>(null)
 
   useEffect(() => {
+    const loadWalletForUser = (uid: string | null) => {
+      setUserId(uid)
+      setAccount(null)
+      setIsLocked(true)
+      setPublicKey(uid ? storeGetPublicKey(uid) : null)
+    }
+
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
-      const uid = user?.id ?? null
-      setUserId(uid)
-      const pk = storeGetPublicKey(uid) || storeGetPublicKey(null)
-      if (pk) {
-        setPublicKey(pk)
-        setIsLocked(true)
-      }
+      loadWalletForUser(user?.id ?? null)
       setIsLoaded(true)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      const uid = session?.user?.id ?? null
-      setUserId(uid)
-      if (!uid) {
-        setPublicKey(null)
-        setIsLocked(true)
-        setAccount(null)
-      }
+      loadWalletForUser(session?.user?.id ?? null)
+      setIsLoaded(true)
     })
 
     return () => subscription.unsubscribe()

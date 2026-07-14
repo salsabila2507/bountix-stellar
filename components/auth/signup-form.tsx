@@ -1,10 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { Check, LoaderCircle, TriangleAlert } from "lucide-react";
 import { signupAction } from "@/app/auth/actions";
 import { initialAuthState, type AuthFormState } from "@/lib/auth-form";
+import { createClient } from "@/utils/supabase/client";
+import {
+  createAndStoreWallet,
+  getPublicKey as getStoredWalletPublicKey,
+} from "@/lib/stellar/wallet-store";
 import { OAuthButtons } from "./oauth-buttons";
 
 function FieldError({ message }: { message?: string }) {
@@ -12,11 +18,75 @@ function FieldError({ message }: { message?: string }) {
   return <p className="mt-2 text-sm font-bold text-[#c42463]">{message}</p>;
 }
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
+async function saveWalletAddress(address: string): Promise<void> {
+  const res = await fetch("/api/wallet/address", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ address }),
+  });
+
+  if (!res.ok) {
+    throw new Error("Wallet created, but the address could not be saved to your profile.");
+  }
+}
+
 export function SignupForm({ referralCode }: { referralCode?: string }) {
+  const router = useRouter();
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const walletProvisionStarted = useRef(false);
+  const [walletError, setWalletError] = useState<string | null>(null);
+  const [isProvisioningWallet, setIsProvisioningWallet] = useState(false);
   const [state, formAction, isPending] = useActionState<
     AuthFormState,
     FormData
   >(signupAction, initialAuthState);
+
+  useEffect(() => {
+    if (state.status !== "success" || walletProvisionStarted.current) return;
+
+    walletProvisionStarted.current = true;
+    setWalletError(null);
+    setIsProvisioningWallet(true);
+
+    async function provisionWallet() {
+      try {
+        const password = passwordRef.current?.value ?? "";
+        if (password.length < 8) {
+          throw new Error("Password is required to encrypt your wallet.");
+        }
+
+        const supabase = createClient();
+        const { data, error } = await supabase.auth.getUser();
+        if (error || !data.user) {
+          throw new Error("Account created, but the login session was not ready. Please log in and create your wallet from Wallet.");
+        }
+
+        let publicKey = getStoredWalletPublicKey(data.user.id);
+        if (!publicKey) {
+          const wallet = await createAndStoreWallet(password, data.user.id);
+          publicKey = wallet.publicKey;
+        }
+
+        await saveWalletAddress(publicKey);
+        router.replace("/dashboard/profile");
+        router.refresh();
+      } catch (error) {
+        walletProvisionStarted.current = false;
+        setWalletError(getErrorMessage(error, "Could not create your wallet."));
+      } finally {
+        setIsProvisioningWallet(false);
+      }
+    }
+
+    void provisionWallet();
+  }, [router, state.status]);
+
+  const errorMessage = state.status === "error" ? state.message : walletError;
+  const isSubmitting = isPending || isProvisioningWallet;
 
   return (
     <form action={formAction} className="comic-card bg-white p-5 sm:p-6">
@@ -31,13 +101,13 @@ export function SignupForm({ referralCode }: { referralCode?: string }) {
         Email and password is all you need. You can finish your profile after.
       </p>
 
-      {state.status === "error" && state.message ? (
+      {errorMessage ? (
         <div className="mt-6 flex gap-3 rounded-lg border-2 border-[#140625] bg-[#ffe1ed] p-3 text-sm font-bold text-[#8a1742]">
           <TriangleAlert
             aria-hidden="true"
             className="mt-0.5 h-4 w-4 shrink-0"
           />
-          <p>{state.message}</p>
+          <p>{errorMessage}</p>
         </div>
       ) : null}
 
@@ -58,6 +128,7 @@ export function SignupForm({ referralCode }: { referralCode?: string }) {
         <label className="block">
           <span className="text-sm font-black text-[#140625]">Password</span>
           <input
+            ref={passwordRef}
             name="password"
             type="password"
             autoComplete="new-password"
@@ -72,13 +143,13 @@ export function SignupForm({ referralCode }: { referralCode?: string }) {
 
       <button
         type="submit"
-        disabled={isPending}
+        disabled={isSubmitting}
         className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border-2 border-[#140625] bg-[#ff4fb8] px-5 py-3 text-sm font-black uppercase text-white shadow-[5px_5px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#7c3cff] disabled:cursor-not-allowed disabled:bg-[#c9c0d3] disabled:text-[#5a3b66]"
       >
-        {isPending ? (
+        {isSubmitting ? (
           <>
             <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" />
-            Creating account…
+            {isProvisioningWallet ? "Creating wallet…" : "Creating account…"}
           </>
         ) : (
           <>
