@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/utils/supabase/server";
+import { createAdminClient, createClient } from "@/utils/supabase/server";
 import { ESCROW_CONTRACT_ADDRESS, uuidToBytes32 } from "@/lib/escrow";
 import { adminGetEscrowState } from "@/lib/stellar-admin";
 import { isUuid } from "@/lib/tasks";
@@ -665,10 +665,11 @@ export async function reconcileReleasedEscrowAction(submissionId: string) {
     return { ok: false, reconciled: false, message: "Invalid submission." };
   }
 
-  const { supabase, user, profile } = await loadActor();
+  const { user, profile } = await loadActor();
   if (!user) redirect("/login");
+  const admin = createAdminClient();
 
-  const { data: submission } = await supabase
+  const { data: submission } = await admin
     .from("task_submissions")
     .select("task_id, submitter_id, released_at")
     .eq("id", submissionId)
@@ -680,7 +681,7 @@ export async function reconcileReleasedEscrowAction(submissionId: string) {
     return { ok: true, reconciled: true, message: "Release already recorded." };
   }
 
-  const { data: task } = await supabase
+  const { data: task } = await admin
     .from("tasks")
     .select("id, creator_id, title, payment_method")
     .eq("id", submission.task_id)
@@ -721,7 +722,7 @@ export async function reconcileReleasedEscrowAction(submissionId: string) {
   }
 
   const releasedAt = new Date().toISOString();
-  const { data: updated, error } = await supabase
+  const { data: updated, error } = await admin
     .from("task_submissions")
     .update({ released_at: releasedAt })
     .eq("id", submissionId)
@@ -781,11 +782,12 @@ export async function releaseEscrowAction(
     return { ok: false, message: "Invalid transaction hash." };
   }
 
-  const { supabase, user, profile } = await loadActor();
+  const { user, profile } = await loadActor();
   if (!user) redirect("/login");
+  const admin = createAdminClient();
 
   // Fetch submission + task + worker profile
-  const { data: submission } = await supabase
+  const { data: submission } = await admin
     .from("task_submissions")
     .select("task_id, submitter_id, status, raffle_winner_position")
     .eq("id", submissionId)
@@ -795,7 +797,7 @@ export async function releaseEscrowAction(
     return { ok: false, message: "Submission not found." };
   }
 
-  const { data: task } = await supabase
+  const { data: task } = await admin
     .from("tasks")
     .select(
       "id, creator_id, title, payment_method, reward_amount, reward_mode, raffle_winner_count",
@@ -843,7 +845,7 @@ export async function releaseEscrowAction(
   }
 
   // Fetch worker wallet address
-  const { data: worker } = await supabase
+  const { data: worker } = await admin
     .from("profiles")
     .select("wallet_address")
     .eq("id", submission.submitter_id)
@@ -858,7 +860,7 @@ export async function releaseEscrowAction(
   }
 
   // Record both assign and release tx hashes on the submission
-  const { error } = await supabase
+  const { error } = await admin
     .from("task_submissions")
     .update({
       assign_tx_hash: assignTxHash,
@@ -916,10 +918,11 @@ export async function releaseRaffleEscrowAction(
     return { ok: false, message: "Invalid transaction hash." };
   }
 
-  const { supabase, user, profile } = await loadActor();
+  const { user, profile } = await loadActor();
   if (!user) redirect("/login");
+  const admin = createAdminClient();
 
-  const { data: task } = await supabase
+  const { data: task } = await admin
     .from("tasks")
     .select(
       "id, creator_id, title, payment_method, reward_mode, raffle_winner_count, escrow_contract_address",
@@ -956,7 +959,7 @@ export async function releaseRaffleEscrowAction(
     };
   }
 
-  const { data: winners } = await supabase
+  const { data: winners } = await admin
     .from("task_submissions")
     .select("id, status, release_tx_hash")
     .eq("task_id", taskId)
@@ -980,7 +983,7 @@ export async function releaseRaffleEscrowAction(
     return { ok: false, message: "This raffle escrow is already released." };
   }
 
-  const { error } = await supabase
+  const { error } = await admin
     .from("task_submissions")
     .update({
       assign_tx_hash: assignTxHash,
@@ -1003,7 +1006,7 @@ export async function releaseRaffleEscrowAction(
   // Notify each winner and the task creator.
   try {
     const title = (task as { title?: string | null }).title ?? "task";
-    const { data: winnerSubs } = await supabase
+    const { data: winnerSubs } = await admin
       .from("task_submissions")
       .select("id, submitter_id")
       .in("id", winnerRows.map((w) => w.id));
