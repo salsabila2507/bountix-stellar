@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "fs";
+import { dirname, join } from "path";
 import { Api } from "tls-sig-api-v2";
 
 const EXPIRE = 86400 * 180;
@@ -20,12 +22,42 @@ const SECRET_KEY_KEYS = [
   "SecretKey",
 ];
 
+function readLooseEnvFileValue(keys: string[]): string | null {
+  const candidates = [
+    join(process.cwd(), ".env.local"),
+    join(process.cwd(), ".env"),
+    join(dirname(process.cwd()), ".env"),
+    "/home/ubuntu/.env",
+  ];
+
+  for (const file of candidates) {
+    if (!existsSync(file)) continue;
+    const lines = readFileSync(file, "utf8").split(/\r?\n/);
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+
+      for (const key of keys) {
+        const pattern = new RegExp(
+          "^(?:export\\s+)?" + key + "(?:\\s*=\\s*|\\s*:\\s*|\\s+)(.+)$",
+          "i",
+        );
+        const match = trimmed.match(pattern);
+        const value = match?.[1]?.trim().replace(/^['"]|['"]$/g, "");
+        if (value) return value;
+      }
+    }
+  }
+
+  return null;
+}
+
 function readEnv(keys: string[]): string | null {
   for (const key of keys) {
     const value = process.env[key]?.trim();
     if (value) return value;
   }
-  return null;
+  return readLooseEnvFileValue(keys);
 }
 
 export function getTencentChatSdkAppId(): number {

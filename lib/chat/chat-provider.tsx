@@ -95,7 +95,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           return
         }
         if (!res.ok) {
-          setError("Chat auth failed")
+          const body = (await res.json().catch(() => null)) as { error?: string } | null
+          setError(body?.error ? `Chat auth failed: ${body.error}` : "Chat auth failed")
           return
         }
 
