@@ -11,6 +11,18 @@ import { UnlockForm } from "@/components/wallet/unlock-form"
 import { ConfirmationModal } from "@/components/wallet/confirmation-modal"
 import { STELLAR_USDC_ADDRESS, USDC_CLASSIC_ISSUER, USDC_CLASSIC_CODE } from "@/lib/payments"
 
+interface WalletTx {
+  id: string
+  tx_hash: string
+  type: string
+  amount: string
+  asset: string
+  counterparty: string | null
+  memo: string | null
+  status: string
+  created_at: string
+}
+
 interface SorobanTransfer {
   txHash: string
   ledger: number
@@ -49,6 +61,8 @@ export default function WalletDashboard() {
   const [exportedKey, setExportedKey] = useState<string | null>(null)
   const [exportCopied, setExportCopied] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
+  const [localTxs, setLocalTxs] = useState<any[]>([])
+  const [localTxsLoading, setLocalTxsLoading] = useState(false)
   const { requestUnlock, clearKey } = useSecretKey()
 
   useEffect(() => {
@@ -92,6 +106,17 @@ export default function WalletDashboard() {
       fetchSorobanTransfers()
     }
   }, [publicKey, isLocked, fetchSorobanTransfers])
+
+  useEffect(() => {
+    if (publicKey && !isLocked) {
+      setLocalTxsLoading(true)
+      fetch(`/api/wallet/transactions?publicKey=${publicKey}`)
+        .then((r) => r.json())
+        .then((d) => setLocalTxs(d.transactions ?? []))
+        .catch(() => setLocalTxs([]))
+        .finally(() => setLocalTxsLoading(false))
+    }
+  }, [publicKey, isLocked])
 
   async function handleGetSorobanUsdc(pincode: string) {
     setUsdcError(null)
@@ -191,14 +216,6 @@ export default function WalletDashboard() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
-      <div className="flex items-center justify-between">
-        <Link
-          href="/tasks"
-          className="inline-flex items-center gap-2 rounded-lg border-2 border-[#140625] bg-white px-3 py-2 text-xs font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625] transition hover:bg-[#38e7ff]"
-        >
-          ← Back to Bountix
-        </Link>
-      </div>
       <div className="comic-card p-6">
         <div className="flex items-center justify-between">
           <div>
@@ -364,6 +381,44 @@ export default function WalletDashboard() {
                       {p.from === publicKey ? p.to : p.from}
                     </td>
                     <td className="py-2 text-xs text-[#5a3b66]">{new Date(p.created_at).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="comic-card p-6">
+        <h3 className="text-lg font-black text-[#140625]">Recorded History</h3>
+        {localTxsLoading ? (
+          <div className="flex justify-center py-4">
+            <span className="loading loading-spinner text-[#38e7ff]" />
+          </div>
+        ) : localTxs.length === 0 ? (
+          <p className="text-sm font-bold text-[#5a3b66] text-center py-4">No recorded transactions yet</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b-2 border-[#140625] text-left text-xs font-black uppercase text-[#5a3b66]">
+                  <th className="pb-2 pr-4">Type</th>
+                  <th className="pb-2 pr-4">Amount</th>
+                  <th className="pb-2 pr-4">Counterparty</th>
+                  <th className="pb-2">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {localTxs.map((tx: WalletTx) => (
+                  <tr key={tx.id} className="border-b border-[#140625]/10">
+                    <td className="py-2 pr-4">
+                      <span className="rounded-md border-2 border-[#140625] bg-[#7c3cff] px-2 py-0.5 text-[0.65rem] font-black text-white">
+                        {tx.type.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-4 font-bold text-[#140625]">{tx.amount} {tx.asset}</td>
+                    <td className="py-2 pr-4 font-mono text-xs text-[#5a3b66] truncate max-w-[120px]">{tx.counterparty ?? "-"}</td>
+                    <td className="py-2 text-xs text-[#5a3b66]">{new Date(tx.created_at).toLocaleDateString()}</td>
                   </tr>
                 ))}
               </tbody>

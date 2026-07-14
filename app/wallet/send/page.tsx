@@ -63,6 +63,26 @@ export default function SendPage() {
       setShowConfirm(false)
       clearKey()
       refreshAccount()
+
+      try {
+        const assetName = assetCode === "XLM" ? "XLM" : assetCode
+        await fetch("/api/wallet/transactions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            txHash: result.hash,
+            publicKey,
+            type: "send",
+            amount,
+            asset: assetName,
+            counterparty: destination,
+            memo: memo?.type !== "none" ? memo?.value : undefined,
+            memoType: memo?.type !== "none" ? memo?.type : undefined,
+          }),
+        })
+      } catch {
+        // non-blocking
+      }
     } catch (err: any) {
       setConfirmError(err.message ?? "Transaction failed")
     } finally {
