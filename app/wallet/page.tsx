@@ -268,7 +268,7 @@ export default function WalletDashboard() {
           <p className="comic-chip bg-[#7c3cff] text-white mx-auto w-fit">Wallet Locked</p>
           <h1 className="mt-3 text-2xl font-black text-[#140625] text-center">Unlock Wallet</h1>
           <p className="mt-2 text-sm font-bold text-[#3c214b] text-center">
-            Enter your pincode to unlock your wallet.
+            Enter your signup password or wallet pincode to unlock your wallet.
           </p>
           <UnlockForm />
         </div>
@@ -640,7 +640,7 @@ export default function WalletDashboard() {
         ) : (
           <div className="space-y-2 text-left text-sm font-bold text-[#3c214b]">
             <p>
-              Enter your pincode to reveal your secret key. This unlocks
+              Enter your signup password or wallet pincode to reveal your secret key. This unlocks
               the encrypted key in your browser and shows it once.
             </p>
             <p className="text-xs font-black text-[#ff4fb8]">

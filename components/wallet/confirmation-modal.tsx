@@ -54,19 +54,18 @@ export function ConfirmationModal({
         <h3 className="text-lg font-black text-[#140625]">{title}</h3>
         <div className="space-y-4">{children}</div>
         <div>
-          <label className="text-xs font-black uppercase text-[#5a3b66]">Enter pincode to confirm</label>
+          <label className="text-xs font-black uppercase text-[#5a3b66]">Enter wallet password or pincode</label>
           <input
             type="password"
-            inputMode="numeric"
-            maxLength={6}
             value={pincode}
-            onChange={(e) => setPincode(e.target.value.replace(/\D/g, ""))}
-            className={`mt-1 block w-full rounded-lg border-2 px-3 py-2 text-center text-lg tracking-widest font-bold text-[#140625] outline-none focus:bg-white ${
+            onChange={(e) => setPincode(e.target.value)}
+            autoComplete="current-password"
+            className={`mt-1 block w-full rounded-lg border-2 px-3 py-2 text-center text-lg font-bold text-[#140625] outline-none focus:bg-white ${
               displayError
                 ? "border-[#ff4fb8] bg-[#fff0f5]"
                 : "border-[#140625] bg-[#fffaf4]"
             }`}
-            placeholder="• • • • • •"
+            placeholder="Password or pincode"
             autoFocus
           />
           {displayError && (

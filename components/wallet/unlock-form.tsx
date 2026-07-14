@@ -13,15 +13,14 @@ export function UnlockForm() {
     <div className="mt-6 space-y-4">
       <input
         type="password"
-        inputMode="numeric"
-        maxLength={6}
         value={pincode}
         onChange={(e) => {
-          setPincode(e.target.value.replace(/\D/g, ""))
+          setPincode(e.target.value)
           setError(null)
         }}
-        className="block w-full rounded-lg border-2 border-[#140625] bg-[#fffaf4] px-3 py-2 text-center text-lg tracking-widest font-bold text-[#140625] outline-none focus:bg-white"
-        placeholder="• • • • • •"
+        autoComplete="current-password"
+        className="block w-full rounded-lg border-2 border-[#140625] bg-[#fffaf4] px-3 py-2 text-center text-lg font-bold text-[#140625] outline-none focus:bg-white"
+        placeholder="Password or pincode"
         autoFocus
       />
 
@@ -40,7 +39,7 @@ export function UnlockForm() {
           try {
             await unlock(pincode)
           } catch {
-            setError("Wrong pincode")
+            setError("Wrong password or pincode")
           } finally {
             setLoading(false)
           }

@@ -32,14 +32,23 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [account, setAccount] = useState<AccountInfo | null>(null)
 
   useEffect(() => {
+    let currentUid: string | null = null
+
     const loadWalletForUser = (uid: string | null) => {
+      currentUid = uid
       setUserId(uid)
       setAccount(null)
       setIsLocked(true)
       setPublicKey(uid ? storeGetPublicKey(uid) : null)
     }
 
+    const handleWalletUpdated = () => {
+      loadWalletForUser(currentUid)
+    }
+
     const supabase = createClient()
+    window.addEventListener("bountix-wallet-updated", handleWalletUpdated)
+
     supabase.auth.getUser().then(({ data: { user } }) => {
       loadWalletForUser(user?.id ?? null)
       setIsLoaded(true)
@@ -50,7 +59,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setIsLoaded(true)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      window.removeEventListener("bountix-wallet-updated", handleWalletUpdated)
+      subscription.unsubscribe()
+    }
   }, [])
 
   const refreshAccount = useCallback(async () => {

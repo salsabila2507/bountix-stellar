@@ -72,6 +72,7 @@ export function SignupForm({ referralCode }: { referralCode?: string }) {
         }
 
         await saveWalletAddress(publicKey);
+        window.dispatchEvent(new Event("bountix-wallet-updated"));
         router.replace("/dashboard/profile");
         router.refresh();
       } catch (error) {
