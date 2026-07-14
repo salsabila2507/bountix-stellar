@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
 import { createClient } from "@/utils/supabase/client"
 import {
-  getPublicKey as storeGetPublicKey,
+  getStoredWallet,
   createAndStoreWallet,
   unlockWallet,
   type WalletAccount,
@@ -38,8 +38,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       currentUid = uid
       setUserId(uid)
       setAccount(null)
-      setIsLocked(true)
-      setPublicKey(uid ? storeGetPublicKey(uid) : null)
+      const stored = uid ? getStoredWallet(uid) : null
+      setIsLocked(stored?.authMode !== "session")
+      setPublicKey(stored?.publicKey ?? null)
     }
 
     const handleWalletUpdated = () => {

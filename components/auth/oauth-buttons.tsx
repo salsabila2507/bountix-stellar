@@ -26,6 +26,7 @@ export function OAuthButtons({ referralCode }: { referralCode?: string }) {
     try {
       const supabase = createClient();
       const redirectUrl = new URL("/auth/callback", getRedirectBase());
+      redirectUrl.searchParams.set("next", "/auth/oauth-wallet");
       if (referralCode) {
         redirectUrl.searchParams.set("ref", referralCode);
       }

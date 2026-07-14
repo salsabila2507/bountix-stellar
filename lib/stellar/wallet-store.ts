@@ -41,6 +41,7 @@ async function deriveKey(pincode: string, salt: Uint8Array): Promise<CryptoKey> 
 export interface StoredWallet {
   publicKey: string
   encrypted: string
+  authMode?: "password" | "session"
 }
 
 export interface WalletAccount {
@@ -81,9 +82,14 @@ export async function decryptSecret(encryptedPayload: string, pincode: string): 
   return new TextDecoder().decode(decrypted)
 }
 
-export function saveWallet(publicKey: string, encryptedPayload: string, userId?: string | null): void {
+export function saveWallet(
+  publicKey: string,
+  encryptedPayload: string,
+  userId?: string | null,
+  authMode: StoredWallet["authMode"] = "password",
+): void {
   if (typeof window === "undefined") return
-  localStorage.setItem(walletKey(userId), JSON.stringify({ publicKey, encrypted: encryptedPayload }))
+  localStorage.setItem(walletKey(userId), JSON.stringify({ publicKey, encrypted: encryptedPayload, authMode }))
 }
 
 export function getStoredWallet(userId?: string | null): StoredWallet | null {
@@ -106,10 +112,17 @@ export function hasWallet(userId?: string | null): boolean {
   return getStoredWallet(userId) !== null
 }
 
+function sessionWalletPassword(userId: string): string {
+  return `bountix-session-wallet:${userId}`
+}
+
 export async function unlockWallet(pincode: string, userId?: string | null): Promise<WalletAccount> {
   const stored = getStoredWallet(userId)
   if (!stored) throw new Error("No wallet found")
-  const secretKey = await decryptSecret(stored.encrypted, pincode)
+  const secretKey = await decryptSecret(
+    stored.encrypted,
+    stored.authMode === "session" && userId ? sessionWalletPassword(userId) : pincode,
+  )
   return { publicKey: stored.publicKey, secretKey }
 }
 
@@ -120,6 +133,16 @@ export async function createAndStoreWallet(pincode: string, userId?: string | nu
   const { publicKey, secretKey } = generateWallet()
   const encrypted = await encryptSecret(secretKey, pincode)
   saveWallet(publicKey, encrypted, userId)
+  return { publicKey, secretKey }
+}
+
+export async function createAndStoreSessionWallet(userId: string): Promise<WalletAccount> {
+  if (hasWallet(userId)) {
+    throw new Error("A wallet already exists.")
+  }
+  const { publicKey, secretKey } = generateWallet()
+  const encrypted = await encryptSecret(secretKey, sessionWalletPassword(userId))
+  saveWallet(publicKey, encrypted, userId, "session")
   return { publicKey, secretKey }
 }
 
