@@ -14,14 +14,15 @@ type ChatContextValue = {
   error: string | null
 }
 
-const ChatContext = createContext<ChatContextValue>({
-  chat: null,
-  isReady: false,
-  error: null,
-})
+const ChatContext = createContext<ChatContextValue | null>(null)
 
 export function useChat() {
-  return useContext(ChatContext)
+  const context = useContext(ChatContext)
+  return context ?? {
+    chat: null,
+    isReady: false,
+    error: "Chat provider is not mounted",
+  }
 }
 
 export function ChatProvider({ children }: { children: ReactNode }) {
