@@ -17,6 +17,7 @@ import { EscrowReleaseAdminPanel, type ReleaseRequest } from "@/components/admin
 import { createTranslator } from "@/lib/i18n";
 import { getRequestLocale } from "@/lib/i18n/server";
 import { getServerUser } from "@/lib/server-user";
+import { createAdminClient } from "@/utils/supabase/server";
 import { TASK_LIST_COLUMNS, type DbTask } from "@/lib/tasks";
 
 export const dynamic = "force-dynamic";
@@ -64,49 +65,102 @@ async function loadAdmin() {
 
   if (profile?.role !== "admin") return { authorized: false as const };
 
-  const { data: openDisputes } = await supabase
+  const admin = createAdminClient();
+
+  const { data: openDisputes } = await admin
     .from("disputes")
     .select("*")
     .eq("status", "open")
     .order("created_at", { ascending: false })
     .limit(50);
 
-  // Escrow release requests: approved submissions (not yet released) on escrow tasks
-  const { data: releaseSubs } = await supabase
+  // Escrow release queue: approved, unreleased submissions on escrow tasks.
+  // Keep this as separate queries; embedded joins can fail silently when FK names drift.
+  const { data: approvedSubs } = await admin
     .from("task_submissions")
-    .select(`
-      id, task_id, created_at, submitter_id,
-      tasks!inner(title, reward_amount, payment_method),
-      profiles!task_submissions_submitter_id_fkey(username, display_name, wallet_address)
-    `)
+    .select("id, task_id, submitter_id, status, released_at, raffle_winner_position, created_at")
     .eq("status", "approved")
     .is("released_at", null)
-    .eq("tasks.payment_method", "escrow_stellar")
     .order("created_at", { ascending: false })
-    .limit(50);
+    .limit(100);
 
   type ReleaseSubRow = {
     id: string;
     task_id: string;
+    submitter_id: string;
+    raffle_winner_position: number | null;
     created_at: string;
-    tasks?: { title?: string | null; reward_amount?: number | null } | null;
-    profiles?: {
-      display_name?: string | null;
-      username?: string | null;
-      wallet_address?: string | null;
-    } | null;
   };
-  const releaseRequests: ReleaseRequest[] = (
-    (releaseSubs ?? []) as unknown as ReleaseSubRow[]
-  ).map((s) => ({
-    submissionId: s.id,
-    taskId: s.task_id,
-    taskTitle: s.tasks?.title ?? "Untitled",
-    rewardAmount: s.tasks?.reward_amount ?? 0,
-    workerName: s.profiles?.display_name ?? s.profiles?.username ?? "Unknown",
-    workerWalletAddress: s.profiles?.wallet_address ?? null,
-    createdAt: s.created_at,
-  }));
+  type ReleaseTaskRow = {
+    id: string;
+    title: string | null;
+    reward_amount: number | null;
+    payment_method: string | null;
+    reward_mode: string | null;
+    raffle_winner_count: number | null;
+    escrow_tx_hash: string | null;
+  };
+  type ReleaseProfileRow = {
+    id: string;
+    display_name: string | null;
+    username: string | null;
+    wallet_address: string | null;
+  };
+
+  const releaseSubRows = ((approvedSubs ?? []) as ReleaseSubRow[]).filter(Boolean);
+  const releaseTaskIds = Array.from(new Set(releaseSubRows.map((s) => s.task_id)));
+  const releaseSubmitterIds = Array.from(new Set(releaseSubRows.map((s) => s.submitter_id)));
+
+  const { data: releaseTasks } = releaseTaskIds.length
+    ? await admin
+        .from("tasks")
+        .select("id, title, reward_amount, payment_method, reward_mode, raffle_winner_count, escrow_tx_hash")
+        .in("id", releaseTaskIds)
+    : { data: [] };
+
+  const { data: releaseProfiles } = releaseSubmitterIds.length
+    ? await admin
+        .from("profiles")
+        .select("id, display_name, username, wallet_address")
+        .in("id", releaseSubmitterIds)
+    : { data: [] };
+
+  const releaseTasksById = new Map(
+    ((releaseTasks ?? []) as ReleaseTaskRow[]).map((task) => [task.id, task]),
+  );
+  const releaseProfilesById = new Map(
+    ((releaseProfiles ?? []) as ReleaseProfileRow[]).map((profile) => [profile.id, profile]),
+  );
+
+  const releaseRequests: ReleaseRequest[] = releaseSubRows
+    .map((submission) => {
+      const task = releaseTasksById.get(submission.task_id);
+      const worker = releaseProfilesById.get(submission.submitter_id);
+      if (!task || task.payment_method !== "escrow_stellar" || !task.escrow_tx_hash) {
+        return null;
+      }
+      if (
+        task.reward_mode === "raffle" &&
+        (task.raffle_winner_count ?? 1) > 1
+      ) {
+        return null;
+      }
+      if (task.reward_mode === "raffle" && submission.raffle_winner_position === null) {
+        return null;
+      }
+
+      return {
+        submissionId: submission.id,
+        taskId: submission.task_id,
+        taskTitle: task.title ?? "Untitled",
+        rewardAmount: task.reward_amount ?? 0,
+        workerName: worker?.display_name ?? worker?.username ?? "Unknown",
+        workerWalletAddress: worker?.wallet_address ?? null,
+        createdAt: submission.created_at,
+      } satisfies ReleaseRequest;
+    })
+    .filter((request): request is ReleaseRequest => request !== null)
+    .slice(0, 50);
 
   const { data: tasks } = await supabase
     .from("tasks")
