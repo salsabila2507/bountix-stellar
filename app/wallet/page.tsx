@@ -56,7 +56,7 @@ function formatSorobanUsdc(units: bigint): string {
 }
 
 export default function WalletDashboard() {
-  const { isLoaded, isLocked, publicKey, userId, account, refreshAccount } = useWallet()
+  const { isLoaded, isLocked, authMode, publicKey, userId, account, refreshAccount } = useWallet()
   const [payments, setPayments] = useState<PaymentRecord[]>([])
   const [loadingPayments, setLoadingPayments] = useState(false)
   const [sorobanUsdcBalance, setSorobanUsdcBalance] = useState<bigint | null>(null)
@@ -321,7 +321,13 @@ export default function WalletDashboard() {
           </div>
           <button
             className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg border-2 border-[#140625] bg-[#38e7ff] px-3 py-2 text-xs font-black uppercase text-[#140625] shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#ffdd3d] disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={() => setUsdcModalOpen(true)}
+            onClick={() => {
+              if (authMode === "session") {
+                void handleGetSorobanUsdc("")
+                return
+              }
+              setUsdcModalOpen(true)
+            }}
             disabled={usdcLoading}
           >
             {usdcLoading ? (

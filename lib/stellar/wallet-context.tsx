@@ -15,6 +15,7 @@ import { fetchAccount, type AccountInfo } from "./horizon"
 interface WalletContextType {
   isLoaded: boolean
   isLocked: boolean
+  authMode: StoredWallet["authMode"]
   userId: string | null
   publicKey: string | null
   account: AccountInfo | null
@@ -29,6 +30,7 @@ const WalletContext = createContext<WalletContextType | null>(null)
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false)
   const [isLocked, setIsLocked] = useState(true)
+  const [authMode, setAuthMode] = useState<StoredWallet["authMode"]>("password")
   const [userId, setUserId] = useState<string | null>(null)
   const [publicKey, setPublicKey] = useState<string | null>(null)
   const [account, setAccount] = useState<AccountInfo | null>(null)
@@ -42,6 +44,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       currentUid = uid
       setUserId(uid)
       setAccount(null)
+      setAuthMode(stored?.authMode ?? "password")
       setIsLocked(stored?.authMode !== "session")
       setPublicKey(stored?.publicKey ?? null)
     }
@@ -150,6 +153,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       value={{
         isLoaded,
         isLocked,
+        authMode,
         userId,
         publicKey,
         account,
