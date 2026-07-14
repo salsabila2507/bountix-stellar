@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/utils/supabase/server";
+import { createAdminClient, createClient } from "@/utils/supabase/server";
+import { isUuid } from "@/lib/tasks";
 
 function isInternalPath(value: string): boolean {
   return (
@@ -54,5 +55,41 @@ export async function createGlobalNotificationAction(formData: FormData) {
   if (error) return;
 
   revalidatePath("/admin");
+  revalidatePath("/notifications");
+}
+
+export async function deleteTaskAsAdminAction(formData: FormData) {
+  const taskId = String(formData.get("task_id") ?? "").trim();
+  const reason = String(formData.get("reason") ?? "").trim();
+
+  if (!isUuid(taskId)) return;
+  if (reason.length < 4 || reason.length > 1000) return;
+
+  await requireAdmin();
+  const admin = createAdminClient();
+
+  const { data: task } = await admin
+    .from("tasks")
+    .select("id, creator_id, title")
+    .eq("id", taskId)
+    .maybeSingle();
+
+  if (!task) return;
+
+  await admin.from("notifications").insert({
+    user_id: task.creator_id,
+    type: "task_moderation",
+    title: "Task removed by admin",
+    body: `Your task "${task.title}" was removed by Bountix admin. Reason: ${reason}`,
+    link_url: "/dashboard/tasks",
+  });
+
+  const { error } = await admin.from("tasks").delete().eq("id", taskId);
+  if (error) return;
+
+  revalidatePath("/admin");
+  revalidatePath("/tasks");
+  revalidatePath(`/tasks/${taskId}`);
+  revalidatePath("/dashboard/tasks");
   revalidatePath("/notifications");
 }

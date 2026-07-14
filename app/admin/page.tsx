@@ -6,10 +6,15 @@ import {
   Bell,
   Gift,
   Megaphone,
+  ShieldAlert,
+  Trash2,
   Users,
   Wallet,
 } from "lucide-react";
-import { createGlobalNotificationAction } from "@/app/admin/actions";
+import {
+  createGlobalNotificationAction,
+  deleteTaskAsAdminAction,
+} from "@/app/admin/actions";
 import { SiteHeader } from "@/components/site-header";
 import { DbTaskCard } from "@/components/marketplace/db-task-card";
 import { DisputeCard, type Dispute } from "@/components/admin/dispute-card";
@@ -18,7 +23,12 @@ import { createTranslator } from "@/lib/i18n";
 import { getRequestLocale } from "@/lib/i18n/server";
 import { getServerUser } from "@/lib/server-user";
 import { createAdminClient } from "@/utils/supabase/server";
-import { TASK_LIST_COLUMNS, type DbTask } from "@/lib/tasks";
+import {
+  TASK_LIST_COLUMNS,
+  TASK_STATUS_LABEL,
+  TASK_TYPE_LABEL,
+  type DbTask,
+} from "@/lib/tasks";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +60,16 @@ type AdminReferralGroup = {
   referrer: AdminReferralProfile;
   referralCode: string;
   invitedUsers: (AdminReferralProfile & { referred_at: string })[];
+};
+
+type AdminTaskOwner = {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+};
+
+type AdminModerationTask = DbTask & {
+  creator: AdminTaskOwner | null;
 };
 
 async function loadAdmin() {
@@ -169,6 +189,33 @@ async function loadAdmin() {
     .order("created_at", { ascending: false })
     .limit(50);
 
+  const { data: moderationTaskRows } = await admin
+    .from("tasks")
+    .select(TASK_LIST_COLUMNS)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  const moderationRows = (moderationTaskRows ?? []) as DbTask[];
+  const moderationCreatorIds = Array.from(
+    new Set(moderationRows.map((task) => task.creator_id)),
+  );
+  const { data: moderationProfiles } = moderationCreatorIds.length
+    ? await admin
+        .from("profiles")
+        .select("id, username, display_name")
+        .in("id", moderationCreatorIds)
+    : { data: [] };
+  const moderationProfilesById = new Map(
+    ((moderationProfiles ?? []) as AdminTaskOwner[]).map((profile) => [
+      profile.id,
+      profile,
+    ]),
+  );
+  const moderationTasks: AdminModerationTask[] = moderationRows.map((task) => ({
+    ...task,
+    creator: moderationProfilesById.get(task.creator_id) ?? null,
+  }));
+
   const { data: profiles } = await supabase
     .from("profiles")
     .select(
@@ -257,6 +304,7 @@ async function loadAdmin() {
   return {
     authorized: true as const,
     officialTasks: (tasks ?? []) as DbTask[],
+    moderationTasks,
     profiles: (profiles ?? []) as AdminProfile[],
     openDisputes: (openDisputes ?? []) as unknown as Dispute[],
     releaseRequests,
@@ -384,6 +432,89 @@ export default async function AdminHomePage() {
           <div className="mt-6">
             <EscrowReleaseAdminPanel requests={result.releaseRequests} />
           </div>
+        </div>
+
+        <div className="mt-10">
+          <h2 className="flex items-center gap-2 text-2xl font-black uppercase leading-none">
+            <ShieldAlert aria-hidden="true" className="h-5 w-5" />
+            Task moderation
+          </h2>
+          <p className="mt-2 text-sm font-bold leading-6 text-[#5a3b66]">
+            Remove prohibited tasks from any user account. A reason is required and sent to the task creator.
+          </p>
+        </div>
+
+        <div className="comic-card mt-6 overflow-hidden bg-white p-0">
+          {result.moderationTasks.length === 0 ? (
+            <div className="p-5 text-sm font-bold text-[#5a3b66]">
+              No tasks found.
+            </div>
+          ) : (
+            <div className="grid divide-y-2 divide-[#140625]">
+              {result.moderationTasks.map((task) => {
+                const creatorName = task.creator?.display_name ?? task.creator?.username ?? "Unknown creator";
+
+                return (
+                  <div
+                    key={task.id}
+                    className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)] lg:items-start"
+                  >
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-md border-2 border-[#140625] bg-[#38e7ff] px-2 py-1 text-[0.65rem] font-black uppercase text-[#140625] shadow-[2px_2px_0_#140625]">
+                          {TASK_TYPE_LABEL[task.task_type]}
+                        </span>
+                        <span className="rounded-md border-2 border-[#140625] bg-[#ffdd3d] px-2 py-1 text-[0.65rem] font-black uppercase text-[#140625] shadow-[2px_2px_0_#140625]">
+                          {TASK_STATUS_LABEL[task.status]}
+                        </span>
+                        {task.escrow_tx_hash ? (
+                          <span className="rounded-md border-2 border-[#140625] bg-[#ffe1ed] px-2 py-1 text-[0.65rem] font-black uppercase text-[#140625] shadow-[2px_2px_0_#140625]">
+                            Escrow funded
+                          </span>
+                        ) : null}
+                      </div>
+                      <Link
+                        href={`/tasks/${task.id}`}
+                        className="mt-3 block text-lg font-black text-[#140625] underline decoration-2 underline-offset-2 hover:text-[#7c3cff]"
+                      >
+                        {task.title}
+                      </Link>
+                      <p className="mt-2 line-clamp-2 text-sm font-bold leading-6 text-[#5a3b66]">
+                        {task.description}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs font-black uppercase text-[#5a3b66]">
+                        <span>By {creatorName}</span>
+                        <span>Created {new Date(task.created_at).toLocaleDateString("en-US")}</span>
+                        {task.reward_amount !== null ? (
+                          <span>{task.reward_amount} {task.reward_currency}</span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <form action={deleteTaskAsAdminAction} className="grid gap-2">
+                      <input type="hidden" name="task_id" value={task.id} />
+                      <label className="grid gap-2 text-xs font-black uppercase text-[#5a3b66]">
+                        Removal reason
+                        <textarea
+                          name="reason"
+                          required
+                          minLength={4}
+                          maxLength={1000}
+                          rows={3}
+                          placeholder="Example: Prohibited content / spam / scam / unsafe task."
+                          className="min-h-24 resize-y rounded-lg border-2 border-[#140625] bg-[#fffaf4] px-3 py-2 text-sm font-bold normal-case text-[#140625] outline-none focus:bg-white"
+                        />
+                      </label>
+                      <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border-2 border-[#140625] bg-[#ff4fb8] px-4 py-2 text-xs font-black uppercase text-white shadow-[3px_3px_0_#140625] transition hover:-translate-y-0.5 hover:bg-[#7c3cff]">
+                        <Trash2 aria-hidden="true" className="h-4 w-4" />
+                        Remove task
+                      </button>
+                    </form>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="mt-10">
