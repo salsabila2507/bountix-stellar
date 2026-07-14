@@ -3,6 +3,7 @@ import { dirname, join } from "path";
 import { Api } from "tls-sig-api-v2";
 
 const EXPIRE = 86400 * 180;
+const DEFAULT_SDK_APP_ID = "20044770";
 
 const SDK_APP_ID_KEYS = [
   "TENCENT_CHAT_SDK_APP_ID",
@@ -61,7 +62,7 @@ function readEnv(keys: string[]): string | null {
 }
 
 export function getTencentChatSdkAppId(): number {
-  const value = readEnv(SDK_APP_ID_KEYS);
+  const value = readEnv(SDK_APP_ID_KEYS) ?? DEFAULT_SDK_APP_ID;
   const sdkAppId = Number(value);
   if (!Number.isInteger(sdkAppId) || sdkAppId <= 0) {
     throw new Error("Missing Tencent Chat SDKAppID");
