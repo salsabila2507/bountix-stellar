@@ -24,10 +24,12 @@ import {
 } from "@/lib/escrow";
 import { invokeSorobanAdmin } from "@/lib/stellar";
 import { releaseRaffleEscrowAction } from "@/app/applications/actions";
+import { walletHasUsdcTrustline } from "@/lib/stellar/usdc-trustline";
 
 type Phase = "idle" | "requesting" | "done" | "error";
 type RafflePhase =
   | "idle"
+  | "checking"
   | "assigning"
   | "releasing"
   | "recording"
@@ -180,6 +182,7 @@ export function EscrowRaffleReleasePanel({
   const [releaseTxHash, setReleaseTxHash] = useState<string>("");
 
   const busy =
+    phase === "checking" ||
     phase === "assigning" ||
     phase === "releasing" ||
     phase === "recording";
@@ -215,6 +218,21 @@ export function EscrowRaffleReleasePanel({
 
       const winnerAddresses = winners.map((w) => w.walletAddress!);
       const grossAmounts = winners.map((w) => usdcToUnits(w.grossAmount));
+
+      setPhase("checking");
+      let readiness: boolean[];
+      try {
+        readiness = await Promise.all(
+          winnerAddresses.map((address) => walletHasUsdcTrustline(address)),
+        );
+      } catch {
+        throw new Error("Could not verify winner wallets on Stellar. Try again.");
+      }
+      if (readiness.some((ready) => !ready)) {
+        throw new Error(
+          "Every winner must activate USDC payouts in Wallet before release.",
+        );
+      }
 
       setPhase("assigning");
       const assignHash = await invokeSorobanAdmin(

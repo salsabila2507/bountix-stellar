@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { CheckCircle2, ExternalLink, LoaderCircle, TriangleAlert, Wallet } from "lucide-react"
 import { stellarTxUrl, uuidToBytes32 } from "@/lib/escrow"
 import { invokeSorobanAdmin } from "@/lib/stellar"
-import { releaseEscrowAction } from "@/app/applications/actions"
+import { reconcileReleasedEscrowAction, releaseEscrowAction } from "@/app/applications/actions"
+import { walletHasUsdcTrustline } from "@/lib/stellar/usdc-trustline"
 
 export type ReleaseRequest = {
   submissionId: string
@@ -49,12 +50,29 @@ export function EscrowReleaseAdminPanel({ requests: initial }: { requests: Relea
 }
 
 function ReleaseRequestCard({ request, onDone }: { request: ReleaseRequest; onDone: () => void }) {
-  const [phase, setPhase] = useState<"idle" | "assigning" | "releasing" | "recording" | "done" | "error">("idle")
+  const reconciliationStarted = useRef(false)
+  const [phase, setPhase] = useState<"idle" | "checking" | "assigning" | "releasing" | "recording" | "done" | "error">("idle")
   const [error, setError] = useState<string>("")
   const [assignTxHash, setAssignTxHash] = useState("")
   const [releaseTxHash, setReleaseTxHash] = useState("")
 
-  const busy = phase === "assigning" || phase === "releasing" || phase === "recording"
+  const busy = phase === "checking" || phase === "assigning" || phase === "releasing" || phase === "recording"
+
+  useEffect(() => {
+    if (reconciliationStarted.current) return
+    reconciliationStarted.current = true
+    let cancelled = false
+
+    void reconcileReleasedEscrowAction(request.submissionId).then((result) => {
+      if (cancelled || !result.ok || !result.reconciled) return
+      setPhase("done")
+      onDone()
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [onDone, request.submissionId])
 
   async function handleRelease() {
     setError("")
@@ -67,6 +85,27 @@ function ReleaseRequestCard({ request, onDone }: { request: ReleaseRequest; onDo
 
     try {
       const taskKey = uuidToBytes32(request.taskId)
+
+      setPhase("checking")
+      const reconciliation = await reconcileReleasedEscrowAction(request.submissionId)
+      if (!reconciliation.ok) throw new Error(reconciliation.message)
+      if (reconciliation.reconciled) {
+        setPhase("done")
+        onDone()
+        return
+      }
+
+      let payoutReady = false
+      try {
+        payoutReady = await walletHasUsdcTrustline(request.workerWalletAddress)
+      } catch {
+        throw new Error("Could not verify the worker wallet on Stellar. Try again.")
+      }
+      if (!payoutReady) {
+        throw new Error(
+          "Worker wallet is not ready for USDC payouts. The worker must open Wallet and activate USDC payouts before release.",
+        )
+      }
 
       setPhase("assigning")
       const assignHash = await invokeSorobanAdmin("assign_worker", [taskKey, request.workerWalletAddress])
@@ -153,7 +192,7 @@ function ReleaseRequestCard({ request, onDone }: { request: ReleaseRequest; onDo
         {busy ? (
           <>
             <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" />
-            {phase === "assigning" ? "Assigning worker…" : phase === "releasing" ? "Releasing escrow…" : "Recording…"}
+            {phase === "checking" ? "Checking wallet…" : phase === "assigning" ? "Assigning worker…" : phase === "releasing" ? "Releasing escrow…" : "Recording…"}
           </>
         ) : (
           <>

@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
-import { ESCROW_CONTRACT_ADDRESS } from "@/lib/escrow";
+import { ESCROW_CONTRACT_ADDRESS, uuidToBytes32 } from "@/lib/escrow";
+import { adminGetEscrowState } from "@/lib/stellar-admin";
 import { isUuid } from "@/lib/tasks";
 import { createUserNotification, notifyAdmins } from "@/lib/notifications";
 import type {
@@ -658,6 +659,115 @@ export async function selectRaffleWinnersAction(taskId: string) {
 // =====================================================================
 // Escrow Release (admin/owner only)
 // =====================================================================
+
+export async function reconcileReleasedEscrowAction(submissionId: string) {
+  if (!isUuid(submissionId)) {
+    return { ok: false, reconciled: false, message: "Invalid submission." };
+  }
+
+  const { supabase, user, profile } = await loadActor();
+  if (!user) redirect("/login");
+
+  const { data: submission } = await supabase
+    .from("task_submissions")
+    .select("task_id, submitter_id, released_at")
+    .eq("id", submissionId)
+    .maybeSingle();
+  if (!submission) {
+    return { ok: false, reconciled: false, message: "Submission not found." };
+  }
+  if (submission.released_at) {
+    return { ok: true, reconciled: true, message: "Release already recorded." };
+  }
+
+  const { data: task } = await supabase
+    .from("tasks")
+    .select("id, creator_id, title, payment_method")
+    .eq("id", submission.task_id)
+    .maybeSingle();
+  if (!task) {
+    return { ok: false, reconciled: false, message: "Task not found." };
+  }
+
+  const isAdmin = profile?.role === "admin";
+  const isOwner = task.creator_id === user.id;
+  if (!isAdmin && !isOwner) {
+    return { ok: false, reconciled: false, message: "Permission denied." };
+  }
+  if (task.payment_method !== "escrow_stellar") {
+    return { ok: false, reconciled: false, message: "This task uses manual payment." };
+  }
+
+  let state;
+  try {
+    state = await adminGetEscrowState(uuidToBytes32(task.id));
+  } catch (error) {
+    return {
+      ok: false,
+      reconciled: false,
+      message: error instanceof Error ? error.message : "Could not verify escrow state.",
+    };
+  }
+
+  if (state === "Funded") {
+    return { ok: true, reconciled: false, message: "Escrow is still funded." };
+  }
+  if (state === "Refunded") {
+    return {
+      ok: false,
+      reconciled: false,
+      message: "Escrow was refunded on-chain and cannot be released.",
+    };
+  }
+
+  const releasedAt = new Date().toISOString();
+  const { data: updated, error } = await supabase
+    .from("task_submissions")
+    .update({ released_at: releasedAt })
+    .eq("id", submissionId)
+    .is("released_at", null)
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    return {
+      ok: false,
+      reconciled: false,
+      message: error.message || "Could not reconcile the release.",
+    };
+  }
+  if (updated) {
+    try {
+      await Promise.all([
+        createUserNotification({
+          userId: submission.submitter_id,
+          title: "Escrow payout received",
+          body: `Escrow for "${task.title ?? "task"}" was verified as released to your wallet.`,
+          type: "escrow_released",
+          linkUrl: "/wallet",
+        }),
+        createUserNotification({
+          userId: task.creator_id,
+          title: "Escrow release synchronized",
+          body: `The on-chain release for "${task.title ?? "task"}" is now synchronized with Bountix.`,
+          type: "escrow_released",
+          linkUrl: `/dashboard/tasks/${task.id}/applicants#${submissionId}`,
+        }),
+      ]);
+    } catch (notificationError) {
+      console.error("[reconcileReleasedEscrowAction] notify error:", notificationError);
+    }
+  }
+
+  revalidatePath(`/dashboard/tasks/${task.id}/applicants`);
+  revalidatePath("/admin");
+  revalidatePath(`/tasks/${task.id}`);
+
+  return {
+    ok: true,
+    reconciled: true,
+    message: "On-chain release reconciled.",
+  };
+}
 
 export async function releaseEscrowAction(
   submissionId: string,

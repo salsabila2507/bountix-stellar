@@ -9,6 +9,7 @@ import {
   nativeToScVal,
   xdr,
   Address,
+  scValToNative,
 } from "@stellar/stellar-sdk";
 import { ESCROW_CONTRACT_ADDRESS } from "./escrow";
 
@@ -16,6 +17,8 @@ const SOROBAN_RPC_URL =
   process.env.NEXT_PUBLIC_SOROBAN_RPC_URL ??
   "https://soroban-testnet.stellar.org";
 const ADMIN_KEY = process.env.PRIVATE_KEY;
+
+export type EscrowState = "Funded" | "Released" | "Refunded";
 
 function isStellarAddress(value: string): boolean {
   return (value.startsWith("G") || value.startsWith("C")) && value.length === 56;
@@ -91,6 +94,56 @@ export async function adminQuery(
   return true;
 }
 
+export async function adminGetEscrowState(
+  taskKey: { __bytes: string },
+): Promise<EscrowState> {
+  if (!ESCROW_CONTRACT_ADDRESS)
+    throw new Error("ESCROW_CONTRACT_ADDRESS not set");
+
+  const server = new rpc.Server(SOROBAN_RPC_URL);
+  const kp = ADMIN_KEY ? Keypair.fromSecret(ADMIN_KEY) : Keypair.random();
+  if (!ADMIN_KEY) {
+    await fetch(
+      `https://friendbot.stellar.org?addr=${kp.publicKey()}`,
+    ).then((response) => {
+      if (!response.ok) throw new Error("Could not prepare escrow status query");
+    });
+  }
+  const rpcAccount = await server.getAccount(kp.publicKey());
+  const sourceAccount = new Account(
+    rpcAccount.accountId(),
+    rpcAccount.sequenceNumber(),
+  );
+
+  const transaction = new TransactionBuilder(sourceAccount, {
+    fee: BASE_FEE,
+    networkPassphrase: Networks.TESTNET,
+  })
+    .addOperation(
+      Operation.invokeContractFunction({
+        contract: ESCROW_CONTRACT_ADDRESS,
+        function: "get_escrow",
+        args: [toScVal(taskKey)],
+      }),
+    )
+    .setTimeout(30)
+    .build();
+
+  const simulation = await server.simulateTransaction(transaction);
+  if (rpc.Api.isSimulationError(simulation) || !simulation.result?.retval) {
+    throw new Error("Escrow was not found on-chain");
+  }
+
+  const native = scValToNative(simulation.result.retval) as {
+    state?: unknown;
+  };
+  const state = Array.isArray(native.state) ? native.state[0] : native.state;
+  if (state === "Funded" || state === "Released" || state === "Refunded") {
+    return state;
+  }
+  throw new Error("Unknown on-chain escrow state");
+}
+
 export async function adminInvoke(
   functionName: string,
   args: unknown[],
@@ -134,6 +187,14 @@ export async function adminInvoke(
     const events = simulation.events
       ? JSON.stringify(simulation.events)
       : "(no events)";
+    if (
+      simulation.error.includes("Error(Contract, #13)") &&
+      events.includes("trustline entry is missing")
+    ) {
+      throw new Error(
+        "Recipient wallet is not ready for USDC payouts. The recipient must activate the USDC trustline in Wallet before release.",
+      );
+    }
     const argsSummary = JSON.stringify(fundArgs).substring(0, 800);
     throw new Error(
       `Soroban simulation error: ${simulation.error}\nFundArgs: ${argsSummary}\nEvents:\n${events}`,

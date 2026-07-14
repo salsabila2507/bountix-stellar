@@ -10,7 +10,9 @@ import { createClient } from "@/utils/supabase/client";
 import {
   createAndStoreWallet,
   getPublicKey as getStoredWalletPublicKey,
+  unlockWallet,
 } from "@/lib/stellar/wallet-store";
+import { ensureUsdcTrustline } from "@/lib/stellar/usdc-trustline";
 import { OAuthButtons } from "./oauth-buttons";
 
 function FieldError({ message }: { message?: string }) {
@@ -65,13 +67,16 @@ export function SignupForm({ referralCode }: { referralCode?: string }) {
           throw new Error("Account created, but the login session was not ready. Please log in and create your wallet from Wallet.");
         }
 
-        let publicKey = getStoredWalletPublicKey(data.user.id);
-        if (!publicKey) {
-          const wallet = await createAndStoreWallet(password, data.user.id);
-          publicKey = wallet.publicKey;
+        let wallet;
+        const existingPublicKey = getStoredWalletPublicKey(data.user.id);
+        if (existingPublicKey) {
+          wallet = await unlockWallet(password, data.user.id);
+        } else {
+          wallet = await createAndStoreWallet(password, data.user.id);
         }
 
-        await saveWalletAddress(publicKey);
+        await ensureUsdcTrustline(wallet.secretKey);
+        await saveWalletAddress(wallet.publicKey);
         window.dispatchEvent(new Event("bountix-wallet-updated"));
         router.replace("/dashboard/profile");
         router.refresh();

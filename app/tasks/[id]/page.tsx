@@ -536,7 +536,7 @@ function ApplicationStatusCard({
   };
   const isAccepted = app.status === "accepted";
   const isApproved = latest?.status === "approved";
-  const isReleased = !!latest?.release_tx_hash;
+  const isReleased = Boolean(latest?.released_at || latest?.release_tx_hash);
   const isRevision = latest?.status === "revision_requested";
   const isRejected = latest?.status === "rejected";
 
@@ -697,5 +697,4 @@ function ApplicationStatusCard({
     </>
   );
 }
-
 

@@ -3,14 +3,13 @@
 import { useWallet, useSecretKey } from "@/lib/stellar/wallet-context"
 import { fetchPayments, type PaymentRecord } from "@/lib/stellar/horizon"
 import { getCachedSorobanTokenBalance } from "@/lib/stellar"
-import { buildChangeTrust, signTransaction, submitTransaction } from "@/lib/stellar/transactions"
-import { Asset } from "@stellar/stellar-sdk"
 import { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
 import { UnlockForm } from "@/components/wallet/unlock-form"
 import { ConfirmationModal } from "@/components/wallet/confirmation-modal"
 import { STELLAR_USDC_ADDRESS, USDC_CLASSIC_ISSUER, USDC_CLASSIC_CODE } from "@/lib/payments"
 import { getLocalTransactions, type LocalTx } from "@/lib/stellar/transaction-store"
+import { ensureUsdcTrustline, hasUsdcTrustline } from "@/lib/stellar/usdc-trustline"
 
 interface SorobanTransfer {
   txHash: string
@@ -189,23 +188,12 @@ export default function WalletDashboard() {
     try {
       if (!publicKey) return
 
-      // Ensure account has XLM for fees
-      try {
-        await fetch(`https://friendbot.stellar.org?addr=${publicKey}`)
-      } catch {
-        // friendbot might fail if account already exists
-      }
-
-      // Check/add trustline for classic USDC
       const hasTrust = account?.balances?.some(
         (b) => b.asset_code === USDC_CLASSIC_CODE && b.asset_issuer === USDC_CLASSIC_ISSUER,
       )
       if (!hasTrust) {
         const wallet = await requestUnlock(pincode)
-        const usdcAsset = new Asset(USDC_CLASSIC_CODE, USDC_CLASSIC_ISSUER)
-        const trustTx = await buildChangeTrust(wallet.secretKey, usdcAsset)
-        const signed = signTransaction(trustTx, wallet.secretKey)
-        await submitTransaction(signed)
+        await ensureUsdcTrustline(wallet.secretKey)
         await refreshAccount()
         clearKey()
       }
@@ -277,6 +265,7 @@ export default function WalletDashboard() {
   }
 
   const xlmBalance = account?.balances?.find((b) => b.asset_type === "native")
+  const payoutReady = account ? hasUsdcTrustline(account) : false
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
@@ -335,7 +324,13 @@ export default function WalletDashboard() {
             onClick={() => setUsdcModalOpen(true)}
             disabled={usdcLoading}
           >
-            {usdcLoading ? <span className="loading loading-spinner" /> : "Get 100 Soroban USDC"}
+            {usdcLoading ? (
+              <span className="loading loading-spinner" />
+            ) : payoutReady ? (
+              "Get 100 Soroban USDC"
+            ) : (
+              "Activate USDC payouts"
+            )}
           </button>
           {usdcMessage && (
             <p className="mt-2 text-xs font-bold text-[#1f6b3a] break-all">{usdcMessage}</p>
@@ -551,7 +546,7 @@ export default function WalletDashboard() {
 
       <ConfirmationModal
         open={usdcModalOpen}
-        title="Get Soroban USDC"
+        title={payoutReady ? "Get Soroban USDC" : "Activate USDC payouts"}
         onConfirm={handleGetSorobanUsdc}
         onCancel={() => {
           setUsdcModalOpen(false)
@@ -561,7 +556,7 @@ export default function WalletDashboard() {
         error={usdcError}
       >
         <p className="text-sm font-bold text-[#3c214b]">
-          This will add a trustline for testnet USDC if needed, then request 100 Soroban USDC from the faucet.
+          This activates your testnet USDC trustline for escrow payouts, then requests 100 Soroban USDC from the faucet.
         </p>
       </ConfirmationModal>
 

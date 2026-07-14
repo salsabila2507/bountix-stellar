@@ -6,7 +6,9 @@ import { createClient } from "@/utils/supabase/client";
 import {
   createAndStoreSessionWallet,
   getPublicKey as getStoredWalletPublicKey,
+  unlockWallet,
 } from "@/lib/stellar/wallet-store";
+import { ensureUsdcTrustline } from "@/lib/stellar/usdc-trustline";
 
 async function saveWalletAddress(address: string): Promise<void> {
   const res = await fetch("/api/wallet/address", {
@@ -35,13 +37,13 @@ export default function OAuthWalletSetupPage() {
           return;
         }
 
-        let publicKey = getStoredWalletPublicKey(data.user.id);
-        if (!publicKey) {
-          const wallet = await createAndStoreSessionWallet(data.user.id);
-          publicKey = wallet.publicKey;
-        }
+        const existingPublicKey = getStoredWalletPublicKey(data.user.id);
+        const wallet = existingPublicKey
+          ? await unlockWallet("", data.user.id)
+          : await createAndStoreSessionWallet(data.user.id);
 
-        await saveWalletAddress(publicKey);
+        await ensureUsdcTrustline(wallet.secretKey);
+        await saveWalletAddress(wallet.publicKey);
         window.dispatchEvent(new Event("bountix-wallet-updated"));
         if (!cancelled) {
           router.replace("/dashboard/profile");
