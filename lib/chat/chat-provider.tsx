@@ -34,42 +34,103 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const supabase = createClient()
     let cancelled = false
-    const bootTimer = window.setTimeout(() => {
-      if (!cancelled && !chatRef.current) {
-        setError("Chat auth session timed out")
-      }
-    }, 10_000)
+    let readyTimer: number | null = null
 
-    async function init(userId: string) {
+    function clearReadyTimer() {
+      if (readyTimer !== null) {
+        window.clearTimeout(readyTimer)
+        readyTimer = null
+      }
+    }
+
+    function createChatClient() {
+      if (chatRef.current) return chatRef.current
+
+      if (!Number.isFinite(SDKAPPID) || SDKAPPID <= 0) {
+        setError("Chat SDKAppID missing")
+        return null
+      }
+
+      const nextChat = TencentCloudChat.create({ SDKAppID: SDKAPPID })
+      if (!nextChat) {
+        setError("Chat SDK failed to initialize")
+        return null
+      }
+
+      nextChat.setLogLevel(1)
+      chatRef.current = nextChat
+      setChat(nextChat)
+
+      nextChat.on(TencentCloudChat.EVENT.SDK_READY, () => {
+        clearReadyTimer()
+        if (!cancelled) {
+          setError(null)
+          setIsReady(true)
+        }
+      })
+      nextChat.on(TencentCloudChat.EVENT.SDK_NOT_READY, () => {
+        if (!cancelled) setIsReady(false)
+      })
+      nextChat.on(TencentCloudChat.EVENT.KICKED_OUT, () => {
+        clearReadyTimer()
+        if (!cancelled) {
+          setIsReady(false)
+          setError("Chat session was kicked out. Refresh and try again.")
+        }
+      })
+      nextChat.on(TencentCloudChat.EVENT.ERROR, (event: unknown) => {
+        clearReadyTimer()
+        console.error("[chat] SDK error:", event)
+        if (!cancelled) setError("Chat SDK error")
+      })
+
+      return nextChat
+    }
+
+    async function bootstrap() {
       try {
         setError(null)
-        const res = await fetch("/api/chat/usersig")
+        const res = await fetch("/api/chat/usersig", { cache: "no-store" })
         if (cancelled) return
+        if (res.status === 401) {
+          setError("Chat user session missing")
+          return
+        }
         if (!res.ok) {
           setError("Chat auth failed")
           return
         }
-        const { userSig } = (await res.json()) as { userSig?: string }
+
+        const { userSig, userId } = (await res.json()) as {
+          userSig?: string
+          userId?: string
+        }
         if (cancelled) return
-        if (!userSig) {
+        if (!userId || !userSig) {
           setError("Chat signature missing")
           return
         }
 
-        const chat = chatRef.current
-        if (!chat) {
-          setError("Chat SDK not initialized")
-          return
-        }
-        await chat.login({ userID: userId, userSig })
+        const nextChat = createChatClient()
+        if (!nextChat) return
+
+        clearReadyTimer()
+        readyTimer = window.setTimeout(() => {
+          if (!cancelled && !nextChat.isReady?.()) {
+            setError("Chat login timed out. Check Tencent SDKAppID/UserSig config.")
+          }
+        }, 12_000)
+
+        await nextChat.login({ userID: userId, userSig })
       } catch (err) {
-        console.error("[chat] login error:", err)
+        console.error("[chat] bootstrap error:", err)
         if (!cancelled) setError(err instanceof Error ? err.message : "Chat login failed")
       }
     }
 
     function cleanup() {
       cancelled = true
+      clearReadyTimer()
       if (chatRef.current) {
         chatRef.current.destroy()
         chatRef.current = null
@@ -79,81 +140,22 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setError(null)
     }
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      window.clearTimeout(bootTimer)
-      if (cancelled) return
-      if (!user) {
-        setError("Chat user session missing")
-        return
-      }
-
-      if (!Number.isFinite(SDKAPPID) || SDKAPPID <= 0) {
-        setError("Chat SDKAppID missing")
-        return
-      }
-
-      const chat = TencentCloudChat.create({ SDKAppID: SDKAPPID })
-      if (!chat) {
-        setError("Chat SDK failed to initialize")
-        return
-      }
-
-      chat.setLogLevel(1)
-      chatRef.current = chat
-      setChat(chat)
-
-      const readyTimer = window.setTimeout(() => {
-        if (!cancelled && !chat.isReady?.()) {
-          setError("Chat login timed out. Check Tencent SDKAppID/UserSig config.")
-        }
-      }, 12_000)
-
-      chat.on(TencentCloudChat.EVENT.SDK_READY, () => {
-        window.clearTimeout(readyTimer)
-        if (!cancelled) {
-          setError(null)
-          setIsReady(true)
-        }
-      })
-      chat.on(TencentCloudChat.EVENT.SDK_NOT_READY, () => {
-        if (!cancelled) setIsReady(false)
-      })
-      chat.on(TencentCloudChat.EVENT.KICKED_OUT, () => {
-        window.clearTimeout(readyTimer)
-        if (!cancelled) {
-          setIsReady(false)
-          setError("Chat session was kicked out. Refresh and try again.")
-        }
-      })
-      chat.on(TencentCloudChat.EVENT.ERROR, (event: unknown) => {
-        window.clearTimeout(readyTimer)
-        console.error("[chat] SDK error:", event)
-        if (!cancelled) setError("Chat SDK error")
-      })
-
-      init(user.id)
-    }).catch((err) => {
-      window.clearTimeout(bootTimer)
-      console.error("[chat] auth session error:", err)
-      if (!cancelled) setError("Chat auth session failed")
-    })
+    void bootstrap()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (cancelled) return
       if (event === "SIGNED_OUT" || !session?.user) {
         cleanup()
-      } else if (event === "SIGNED_IN" && chatRef.current) {
-        init(session.user.id)
+      } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        void bootstrap()
       }
     })
 
     return () => {
-      window.clearTimeout(bootTimer)
       subscription.unsubscribe()
       cleanup()
     }
   }, [])
-
   return (
     <ChatContext.Provider value={{ chat, isReady, error }}>
       {children}
