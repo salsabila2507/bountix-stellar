@@ -4,8 +4,10 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 import { createClient } from "@/utils/supabase/client"
 import {
   getStoredWallet,
+  saveWallet,
   createAndStoreWallet,
   unlockWallet,
+  type StoredWallet,
   type WalletAccount,
 } from "./wallet-store"
 import { fetchAccount, type AccountInfo } from "./horizon"
@@ -33,14 +35,42 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let currentUid: string | null = null
+    let loadSeq = 0
 
-    const loadWalletForUser = (uid: string | null) => {
+    const applyStoredWallet = (uid: string | null, stored: StoredWallet | null) => {
       currentUid = uid
       setUserId(uid)
       setAccount(null)
-      const stored = uid ? getStoredWallet(uid) : null
       setIsLocked(stored?.authMode !== "session")
       setPublicKey(stored?.publicKey ?? null)
+    }
+
+    const loadWalletForUser = (uid: string | null) => {
+      const seq = ++loadSeq
+      const stored = uid ? getStoredWallet(uid) : null
+      applyStoredWallet(uid, stored)
+
+      if (!uid || stored) return
+
+      queueMicrotask(() => {
+        void supabase
+          .from("profiles")
+          .select("wallet_address")
+          .eq("id", uid)
+          .maybeSingle()
+          .then(
+            ({ data }) => {
+              if (seq !== loadSeq) return
+              const legacy = getStoredWallet(null)
+              if (!legacy || !data?.wallet_address || legacy.publicKey !== data.wallet_address) return
+              saveWallet(legacy.publicKey, legacy.encrypted, uid, legacy.authMode ?? "password")
+              applyStoredWallet(uid, legacy)
+            },
+            () => {
+            // Profile lookup is only for legacy wallet migration; normal loading already completed.
+            },
+          )
+      })
     }
 
     const handleWalletUpdated = () => {
