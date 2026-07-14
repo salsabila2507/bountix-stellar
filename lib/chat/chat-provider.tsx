@@ -76,16 +76,48 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (cancelled || !user) return
 
+      if (!Number.isFinite(SDKAPPID) || SDKAPPID <= 0) {
+        setError("Chat SDKAppID missing")
+        return
+      }
+
       const chat = TencentCloudChat.create({ SDKAppID: SDKAPPID })
+      if (!chat) {
+        setError("Chat SDK failed to initialize")
+        return
+      }
+
       chat.setLogLevel(1)
       chatRef.current = chat
       setChat(chat)
 
+      const readyTimer = window.setTimeout(() => {
+        if (!cancelled && !chat.isReady?.()) {
+          setError("Chat login timed out. Check Tencent SDKAppID/UserSig config.")
+        }
+      }, 12_000)
+
       chat.on(TencentCloudChat.EVENT.SDK_READY, () => {
-        if (!cancelled) setIsReady(true)
+        window.clearTimeout(readyTimer)
+        if (!cancelled) {
+          setError(null)
+          setIsReady(true)
+        }
       })
       chat.on(TencentCloudChat.EVENT.SDK_NOT_READY, () => {
         if (!cancelled) setIsReady(false)
+      })
+      chat.on(TencentCloudChat.EVENT.KICKED_OUT, () => {
+        window.clearTimeout(readyTimer)
+        if (!cancelled) {
+          setIsReady(false)
+          setError("Chat session was kicked out. Refresh and try again.")
+        }
+      })
+      chat.on(TencentCloudChat.EVENT.ERROR, (event: unknown) => {
+        window.clearTimeout(readyTimer)
+        console.error("[chat] SDK error:", event)
+        if (!cancelled) setError("Chat SDK error")
       })
 
       init(user.id)

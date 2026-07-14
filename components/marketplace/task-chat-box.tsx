@@ -256,7 +256,7 @@ export function TaskChatBox({
           </button>
         </div>
       ) : otherUserId ? (
-        <p className="mt-4 text-xs font-bold text-[#5a3b66]">Connecting to chat...</p>
+        <p className="mt-4 text-xs font-bold text-[#5a3b66]">Connecting to Tencent Chat...</p>
       ) : null}
     </section>
   )
