@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/utils/supabase/server";
+import { createUserNotification } from "@/lib/notifications";
 import { isUuid } from "@/lib/tasks";
 
 export async function POST(request: NextRequest) {
@@ -38,15 +39,19 @@ export async function POST(request: NextRequest) {
 
     const title = (task as { title: string } | null)?.title ?? "Task";
 
-    await admin.from("notifications").insert({
-      user_id: otherUserId,
-      type: "chat",
+    const ok = await createUserNotification({
+      userId: otherUserId,
+      type: "task_message",
       title: "New message",
       body: `${title}: ${text.slice(0, 100)}`,
-      link_url: applicationId
+      linkUrl: applicationId
         ? `/dashboard/applications#${applicationId}`
         : `/dashboard/tasks/${taskId}/applicants`,
     });
+
+    if (!ok) {
+      return NextResponse.json({ error: "Could not create notification" }, { status: 500 });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

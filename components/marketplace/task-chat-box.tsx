@@ -65,7 +65,7 @@ export function TaskChatBox({
   locale,
 }: TaskChatBoxProps) {
   const t = createTranslator(locale)
-  const { chat, isReady } = useChat()
+  const { chat, isReady, error: chatError } = useChat()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [text, setText] = useState("")
   const [sending, setSending] = useState(false)
@@ -229,7 +229,9 @@ export function TaskChatBox({
         )}
       </div>
 
-      {loggedIn ? (
+      {chatError ? (
+        <p className="mt-4 text-xs font-bold text-[#ff4fb8]">{chatError}</p>
+      ) : loggedIn ? (
         <div className="mt-4 grid gap-2">
           <textarea
             value={text}

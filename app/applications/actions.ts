@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { ESCROW_CONTRACT_ADDRESS } from "@/lib/escrow";
 import { isUuid } from "@/lib/tasks";
-import { notifyAdmins } from "@/lib/notifications";
+import { createUserNotification, notifyAdmins } from "@/lib/notifications";
 import type {
   ApplyState,
   SubmitState,
@@ -109,6 +109,8 @@ export async function applyToTaskAction(
 
   revalidatePath(`/tasks/${taskId}`);
   revalidatePath(`/dashboard/applications`);
+  revalidatePath(`/dashboard/tasks/${taskId}/applicants`);
+  revalidatePath(`/notifications`);
   return { status: "success", message: "Application submitted." };
 }
 
@@ -137,14 +139,16 @@ async function notifyTaskCreatorAction(taskId: string, applicantId: string) {
       | null;
     const who =
       profile?.username || profile?.full_name || "Someone";
-    await supabase.from("notifications").insert({
-      user_id: row.creator_id,
+    await createUserNotification({
+      userId: row.creator_id,
       title: "New application",
       body: `${who} applied to "${row.title}"`,
-      type: "personal",
-      link_url: `/tasks/${taskId}#applications`,
+      type: "application_received",
+      linkUrl: `/dashboard/tasks/${taskId}/applicants`,
     });
-  } catch {}
+  } catch (err) {
+    console.error("[notifyTaskCreatorAction] notify error:", err);
+  }
 }
 
 export async function withdrawApplicationAction(applicationId: string) {

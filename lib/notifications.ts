@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { createClient, createAdminClient } from "@/utils/supabase/server";
 
 export const NOTIFICATION_LIMIT = 50;
@@ -106,6 +107,32 @@ export async function getUnreadNotificationCount() {
   } catch {
     return 0;
   }
+}
+
+export async function createUserNotification(notification: {
+  userId: string;
+  title: string;
+  body: string;
+  type: string;
+  linkUrl?: string | null;
+}) {
+  const admin = createAdminClient();
+  const { error } = await admin.from("notifications").insert({
+    user_id: notification.userId,
+    title: notification.title,
+    body: notification.body,
+    type: notification.type,
+    link_url: notification.linkUrl ?? null,
+  });
+
+  if (error) {
+    console.error("[createUserNotification] insert error:", error);
+    return false;
+  }
+
+  revalidatePath("/notifications");
+  revalidatePath("/dashboard");
+  return true;
 }
 
 /** Insert a notification for every admin user. Best-effort, never throws. */

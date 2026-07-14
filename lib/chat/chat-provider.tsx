@@ -4,18 +4,20 @@ import { createContext, useContext, useEffect, useState, useRef, type ReactNode 
 import TencentCloudChat from "@tencentcloud/lite-chat"
 import { createClient } from "@/utils/supabase/client"
 
-const SDKAPPID = 331419296728
+const SDKAPPID = Number(process.env.NEXT_PUBLIC_TENCENT_CHAT_SDK_APP_ID ?? "331419296728")
 
 type ChatSDK = ReturnType<typeof TencentCloudChat.create>
 
 type ChatContextValue = {
   chat: ChatSDK | null
   isReady: boolean
+  error: string | null
 }
 
 const ChatContext = createContext<ChatContextValue>({
   chat: null,
   isReady: false,
+  error: null,
 })
 
 export function useChat() {
@@ -26,6 +28,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const chatRef = useRef<ChatSDK | null>(null)
   const [chat, setChat] = useState<ChatSDK | null>(null)
   const [isReady, setIsReady] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -33,15 +36,29 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
     async function init(userId: string) {
       try {
+        setError(null)
         const res = await fetch("/api/chat/usersig")
-        if (!res.ok || cancelled) return
-        const { userSig } = await res.json()
         if (cancelled) return
+        if (!res.ok) {
+          setError("Chat auth failed")
+          return
+        }
+        const { userSig } = (await res.json()) as { userSig?: string }
+        if (cancelled) return
+        if (!userSig) {
+          setError("Chat signature missing")
+          return
+        }
 
-        const chat = chatRef.current!
+        const chat = chatRef.current
+        if (!chat) {
+          setError("Chat SDK not initialized")
+          return
+        }
         await chat.login({ userID: userId, userSig })
       } catch (err) {
         console.error("[chat] login error:", err)
+        if (!cancelled) setError(err instanceof Error ? err.message : "Chat login failed")
       }
     }
 
@@ -53,6 +70,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setChat(null)
       }
       setIsReady(false)
+      setError(null)
     }
 
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -89,7 +107,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <ChatContext.Provider value={{ chat, isReady }}>
+    <ChatContext.Provider value={{ chat, isReady, error }}>
       {children}
     </ChatContext.Provider>
   )
