@@ -9,9 +9,10 @@ import { buildPayment, signTransaction, submitTransaction, type MemoValue } from
 import { getContacts } from "@/lib/stellar/contacts-store"
 import { ConfirmationModal } from "@/components/wallet/confirmation-modal"
 import { Asset } from "@stellar/stellar-sdk"
+import { addLocalTransaction } from "@/lib/stellar/transaction-store"
 
 export default function SendPage() {
-  const { publicKey, isLocked, refreshAccount } = useWallet()
+  const { publicKey, isLocked, userId, refreshAccount } = useWallet()
   const { secretKey, requestUnlock, clearKey } = useSecretKey()
 
   const [destination, setDestination] = useState("")
@@ -66,20 +67,16 @@ export default function SendPage() {
 
       try {
         const assetName = assetCode === "XLM" ? "XLM" : assetCode
-        await fetch("/api/wallet/transactions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            txHash: result.hash,
-            publicKey,
-            type: "send",
-            amount,
-            asset: assetName,
-            counterparty: destination,
-            memo: memo?.type !== "none" ? memo?.value : undefined,
-            memoType: memo?.type !== "none" ? memo?.type : undefined,
-          }),
-        })
+        addLocalTransaction({
+          txHash: result.hash,
+          type: "send",
+          amount,
+          asset: assetName,
+          counterparty: destination,
+          memo: memo?.type !== "none" ? (memo?.value ?? null) : null,
+          memoType: memo?.type !== "none" ? (memo?.type ?? null) : null,
+          status: "success",
+        }, userId)
       } catch {
         // non-blocking
       }

@@ -10,18 +10,7 @@ import Link from "next/link"
 import { UnlockForm } from "@/components/wallet/unlock-form"
 import { ConfirmationModal } from "@/components/wallet/confirmation-modal"
 import { STELLAR_USDC_ADDRESS, USDC_CLASSIC_ISSUER, USDC_CLASSIC_CODE } from "@/lib/payments"
-
-interface WalletTx {
-  id: string
-  tx_hash: string
-  type: string
-  amount: string
-  asset: string
-  counterparty: string | null
-  memo: string | null
-  status: string
-  created_at: string
-}
+import { getLocalTransactions, type LocalTx } from "@/lib/stellar/transaction-store"
 
 interface SorobanTransfer {
   txHash: string
@@ -45,7 +34,7 @@ function formatSorobanUsdc(units: bigint): string {
 }
 
 export default function WalletDashboard() {
-  const { isLoaded, isLocked, publicKey, account, refreshAccount } = useWallet()
+  const { isLoaded, isLocked, publicKey, userId, account, refreshAccount } = useWallet()
   const [payments, setPayments] = useState<PaymentRecord[]>([])
   const [loadingPayments, setLoadingPayments] = useState(false)
   const [sorobanUsdcBalance, setSorobanUsdcBalance] = useState<bigint | null>(null)
@@ -108,15 +97,11 @@ export default function WalletDashboard() {
   }, [publicKey, isLocked, fetchSorobanTransfers])
 
   useEffect(() => {
-    if (publicKey && !isLocked) {
-      setLocalTxsLoading(true)
-      fetch(`/api/wallet/transactions?publicKey=${publicKey}`)
-        .then((r) => r.json())
-        .then((d) => setLocalTxs(d.transactions ?? []))
-        .catch(() => setLocalTxs([]))
-        .finally(() => setLocalTxsLoading(false))
+    if (publicKey) {
+      setLocalTxs(getLocalTransactions(userId))
+      setLocalTxsLoading(false)
     }
-  }, [publicKey, isLocked])
+  }, [publicKey, userId])
 
   async function handleGetSorobanUsdc(pincode: string) {
     setUsdcError(null)
@@ -409,7 +394,7 @@ export default function WalletDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {localTxs.map((tx: WalletTx) => (
+                {localTxs.map((tx: LocalTx) => (
                   <tr key={tx.id} className="border-b border-[#140625]/10">
                     <td className="py-2 pr-4">
                       <span className="rounded-md border-2 border-[#140625] bg-[#7c3cff] px-2 py-0.5 text-[0.65rem] font-black text-white">
@@ -418,7 +403,7 @@ export default function WalletDashboard() {
                     </td>
                     <td className="py-2 pr-4 font-bold text-[#140625]">{tx.amount} {tx.asset}</td>
                     <td className="py-2 pr-4 font-mono text-xs text-[#5a3b66] truncate max-w-[120px]">{tx.counterparty ?? "-"}</td>
-                    <td className="py-2 text-xs text-[#5a3b66]">{new Date(tx.created_at).toLocaleDateString()}</td>
+                    <td className="py-2 text-xs text-[#5a3b66]">{new Date(tx.createdAt).toLocaleDateString()}</td>
                   </tr>
                 ))}
               </tbody>
