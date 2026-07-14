@@ -6,7 +6,7 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
 
   const admin = createAdminClient()
-  const { data: profiles, error } = await admin.from("profiles").select("count").limit(1)
+  const { error } = await admin.from("profiles").select("count").limit(1)
 
   return NextResponse.json({
     ok: true,

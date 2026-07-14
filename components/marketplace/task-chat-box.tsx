@@ -17,6 +17,29 @@ type ChatMessage = {
   timestamp: number
 }
 
+type ChatSdkMessage = {
+  ID: string
+  conversationID?: string
+  from: string
+  type: string
+  cloudCustomData?: string
+  payload: { text: string }
+  timestamp: number
+}
+
+type MessageReceivedEvent = {
+  data?: ChatSdkMessage[]
+}
+
+function getMessageApplicationId(message: ChatSdkMessage): string | null {
+  try {
+    const meta = JSON.parse(message.cloudCustomData || "{}") as { applicationId?: unknown }
+    return typeof meta.applicationId === "string" ? meta.applicationId : null
+  } catch {
+    return null
+  }
+}
+
 type TaskChatBoxProps = {
   taskId: string
   applicationId: string
@@ -51,29 +74,25 @@ export function TaskChatBox({
 
   useEffect(() => {
     if (!chat || !isReady || !otherUserId) {
-      setLoading(false)
+      queueMicrotask(() => setLoading(false))
       return
     }
 
+    const chatClient = chat
     const conversationID = `C2C${otherUserId}`
     let cancelled = false
 
     async function load() {
       try {
-        const res = await chat.getMessageList({ conversationID, count: 30 })
+        const res = await chatClient.getMessageList({ conversationID })
         if (cancelled) return
 
-        const items: ChatMessage[] = (res.data.messageList as any[])
-          .filter((m: any) => {
-            if (m.type !== TencentCloudChat.TYPES.MSG_TEXT) return false
-            try {
-              const meta = JSON.parse(m.cloudCustomData || "{}")
-              return meta.applicationId === applicationId
-            } catch {
-              return false
-            }
-          })
-          .map((m: any) => ({
+        const items: ChatMessage[] = (res.data.messageList as ChatSdkMessage[])
+          .filter((m) =>
+            m.type === TencentCloudChat.TYPES.MSG_TEXT &&
+            getMessageApplicationId(m) === applicationId,
+          )
+          .map((m) => ({
             id: m.ID,
             senderId: m.from,
             text: m.payload.text,
@@ -90,42 +109,37 @@ export function TaskChatBox({
 
     load()
 
-    function onMessageReceived(event: any) {
+    function onMessageReceived(event: MessageReceivedEvent) {
       if (cancelled) return
-      const msgs: any[] = event.data || []
+      const msgs = event.data || []
       for (const m of msgs) {
         if (
           m.conversationID === conversationID &&
           m.type === TencentCloudChat.TYPES.MSG_TEXT
         ) {
-          try {
-            const meta = JSON.parse(m.cloudCustomData || "{}")
-            if (meta.applicationId === applicationId) {
-              setMessages((prev) => {
-                if (prev.some((p) => p.id === m.ID)) return prev
-                return [
-                  ...prev,
-                  {
-                    id: m.ID,
-                    senderId: m.from,
-                    text: m.payload.text,
-                    timestamp: m.timestamp,
-                  },
-                ]
-              })
-            }
-          } catch {
-            // skip
+          if (getMessageApplicationId(m) === applicationId) {
+            setMessages((prev) => {
+              if (prev.some((p) => p.id === m.ID)) return prev
+              return [
+                ...prev,
+                {
+                  id: m.ID,
+                  senderId: m.from,
+                  text: m.payload.text,
+                  timestamp: m.timestamp,
+                },
+              ]
+            })
           }
         }
       }
     }
 
-    chat.on(TencentCloudChat.EVENT.MESSAGE_RECEIVED, onMessageReceived)
+    chatClient.on(TencentCloudChat.EVENT.MESSAGE_RECEIVED, onMessageReceived)
 
     return () => {
       cancelled = true
-      chat.off(TencentCloudChat.EVENT.MESSAGE_RECEIVED, onMessageReceived)
+      chatClient.off(TencentCloudChat.EVENT.MESSAGE_RECEIVED, onMessageReceived)
     }
   }, [chat, isReady, otherUserId, applicationId])
 

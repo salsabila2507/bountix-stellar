@@ -151,6 +151,6 @@ export function signTransaction(tx: Transaction, secretKey: string): Transaction
   return tx
 }
 
-export async function submitTransaction(tx: Transaction): Promise<any> {
+export async function submitTransaction(tx: Transaction) {
   return server.submitTransaction(tx)
 }

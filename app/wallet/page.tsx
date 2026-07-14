@@ -22,6 +22,14 @@ interface SorobanTransfer {
   timestamp: string
 }
 
+type SorobanHistoryResponse = {
+  transfers?: SorobanTransfer[]
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback
+}
+
 function formatXlm(balance: string): string {
   const num = Number.parseFloat(balance)
   if (isNaN(num)) return "0"
@@ -50,28 +58,56 @@ export default function WalletDashboard() {
   const [exportedKey, setExportedKey] = useState<string | null>(null)
   const [exportCopied, setExportCopied] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
-  const [localTxs, setLocalTxs] = useState<any[]>([])
+  const [localTxs, setLocalTxs] = useState<LocalTx[]>([])
   const [localTxsLoading, setLocalTxsLoading] = useState(false)
   const { requestUnlock, clearKey } = useSecretKey()
 
   useEffect(() => {
-    if (publicKey && !isLocked) {
+    if (!publicKey || isLocked) return
+    let cancelled = false
+
+    queueMicrotask(() => {
+      if (cancelled) return
       setLoadingPayments(true)
       fetchPayments(publicKey, 10)
-        .then(setPayments)
-        .catch(() => setPayments([]))
-        .finally(() => setLoadingPayments(false))
+        .then((records) => {
+          if (!cancelled) setPayments(records)
+        })
+        .catch(() => {
+          if (!cancelled) setPayments([])
+        })
+        .finally(() => {
+          if (!cancelled) setLoadingPayments(false)
+        })
+    })
+
+    return () => {
+      cancelled = true
     }
   }, [publicKey, isLocked])
 
   // Load Soroban USDC balance
   useEffect(() => {
-    if (publicKey && !isLocked) {
+    if (!publicKey || isLocked) return
+    let cancelled = false
+
+    queueMicrotask(() => {
+      if (cancelled) return
       setBalanceLoading(true)
       getCachedSorobanTokenBalance(STELLAR_USDC_ADDRESS, publicKey, true)
-        .then(setSorobanUsdcBalance)
-        .catch(() => setSorobanUsdcBalance(null))
-        .finally(() => setBalanceLoading(false))
+        .then((balance) => {
+          if (!cancelled) setSorobanUsdcBalance(balance)
+        })
+        .catch(() => {
+          if (!cancelled) setSorobanUsdcBalance(null)
+        })
+        .finally(() => {
+          if (!cancelled) setBalanceLoading(false)
+        })
+    })
+
+    return () => {
+      cancelled = true
     }
   }, [publicKey, isLocked])
 
@@ -81,7 +117,7 @@ export default function WalletDashboard() {
     setTransfersLoading(true)
     try {
       const res = await fetch(`/api/wallet/soroban-history?publicKey=${publicKey}`)
-      const data = await res.json()
+      const data = (await res.json()) as SorobanHistoryResponse
       setSorobanTransfers(data.transfers ?? [])
     } catch {
       setSorobanTransfers([])
@@ -92,14 +128,18 @@ export default function WalletDashboard() {
 
   useEffect(() => {
     if (publicKey && !isLocked) {
-      fetchSorobanTransfers()
+      queueMicrotask(() => {
+        void fetchSorobanTransfers()
+      })
     }
   }, [publicKey, isLocked, fetchSorobanTransfers])
 
   useEffect(() => {
     if (publicKey) {
-      setLocalTxs(getLocalTransactions(userId))
-      setLocalTxsLoading(false)
+      queueMicrotask(() => {
+        setLocalTxs(getLocalTransactions(userId))
+        setLocalTxsLoading(false)
+      })
     }
   }, [publicKey, userId])
 
@@ -145,8 +185,8 @@ export default function WalletDashboard() {
       } else {
         setUsdcError(data.error ?? "Failed to get Soroban USDC")
       }
-    } catch (err: any) {
-      setUsdcError(err?.message ?? "Something went wrong")
+    } catch (err) {
+      setUsdcError(getErrorMessage(err, "Something went wrong"))
     } finally {
       setUsdcLoading(false)
     }
@@ -394,7 +434,7 @@ export default function WalletDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {localTxs.map((tx: LocalTx) => (
+                {localTxs.map((tx) => (
                   <tr key={tx.id} className="border-b border-[#140625]/10">
                     <td className="py-2 pr-4">
                       <span className="rounded-md border-2 border-[#140625] bg-[#7c3cff] px-2 py-0.5 text-[0.65rem] font-black text-white">
@@ -438,8 +478,8 @@ export default function WalletDashboard() {
             const wallet = await requestUnlock(pincode)
             setExportedKey(wallet.secretKey)
             clearKey()
-          } catch (err: any) {
-            setExportPincodeError(err?.message ?? "Could not unlock wallet")
+          } catch (err) {
+            setExportPincodeError(getErrorMessage(err, "Could not unlock wallet"))
           } finally {
             setExportLoading(false)
           }

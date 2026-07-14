@@ -139,7 +139,7 @@ export async function importAndStoreWallet(
   let kp: Keypair
   try {
     kp = Keypair.fromSecret(trimmed)
-  } catch (e) {
+  } catch {
     throw new Error("Invalid Stellar secret key — wrong format or checksum.")
   }
   if (hasWallet(userId)) {

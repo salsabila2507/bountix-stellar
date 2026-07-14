@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 
-type Dispute = {
+export type Dispute = {
   id: string
   submission_id: string
   task_id: string

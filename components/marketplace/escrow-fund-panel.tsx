@@ -91,32 +91,41 @@ export function EscrowFundPanel({
 
   // Preflight: friendbot XLM if needed, then refresh USDC balance
   useEffect(() => {
-    if (!publicKey || !tokenAddress) {
-      setUsdcBalance(null);
-      return;
-    }
     let cancelled = false;
-    setBalanceLoading(true);
 
-    (async () => {
-      // 1. Make sure wallet has at least 1 XLM (friendbot if not)
-      if (!isLocked) {
-        await ensureTestnetXlm(publicKey);
-        if (!cancelled) await refreshAccount();
-      }
-      // 2. Fetch USDC balance (cached 60s)
-      try {
-        const bal = await getCachedSorobanTokenBalance(
-          tokenAddress,
-          publicKey,
-        );
-        if (!cancelled) setUsdcBalance(bal);
-      } catch {
-        if (!cancelled) setUsdcBalance(BigInt(0));
-      } finally {
-        if (!cancelled) setBalanceLoading(false);
-      }
-    })();
+    if (!publicKey || !tokenAddress) {
+      queueMicrotask(() => {
+        if (!cancelled) setUsdcBalance(null);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setBalanceLoading(true);
+
+      void (async () => {
+        // 1. Make sure wallet has at least 1 XLM (friendbot if not)
+        if (!isLocked) {
+          await ensureTestnetXlm(publicKey);
+          if (!cancelled) await refreshAccount();
+        }
+        // 2. Fetch USDC balance (cached 60s)
+        try {
+          const bal = await getCachedSorobanTokenBalance(
+            tokenAddress,
+            publicKey,
+          );
+          if (!cancelled) setUsdcBalance(bal);
+        } catch {
+          if (!cancelled) setUsdcBalance(BigInt(0));
+        } finally {
+          if (!cancelled) setBalanceLoading(false);
+        }
+      })();
+    });
 
     return () => {
       cancelled = true;

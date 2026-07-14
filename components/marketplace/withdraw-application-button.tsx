@@ -7,6 +7,10 @@ interface Props {
   label: string;
 }
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
 /**
  * Client-side withdrawal submission. Avoids the inline <form action={fn}>
  * pattern which fails on slow mobile networks where Next.js has not finished
@@ -31,8 +35,8 @@ export function WithdrawApplicationButton({ applicationId, label }: Props) {
           return;
         }
         window.location.reload();
-      } catch (e: any) {
-        setError(e?.message ?? "Could not withdraw");
+      } catch (e) {
+        setError(getErrorMessage(e, "Could not withdraw"));
       }
     });
   }

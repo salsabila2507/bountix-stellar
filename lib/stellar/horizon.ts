@@ -43,12 +43,17 @@ export interface Path {
 }
 
 export async function fetchAccount(publicKey: string): Promise<AccountInfo> {
-  const account = await server.loadAccount(publicKey)
+  const account = (await server.loadAccount(publicKey)) as unknown as {
+    id: string
+    sequenceNumber: () => string
+    balances: Balance[]
+    signers?: { key: string }[]
+  }
   return {
     id: account.id,
     sequence: account.sequenceNumber(),
-    balances: (account as any).balances as Balance[],
-    signers: (account as any).signers?.map((s: any) => s.key) ?? [],
+    balances: account.balances,
+    signers: account.signers?.map((s) => s.key) ?? [],
   }
 }
 
@@ -67,7 +72,10 @@ export async function fetchPayments(
     .limit(limit)
     .order("desc")
     .call()
-  return payments.records.map((p: any) => ({
+  const records = payments.records as unknown as Array<
+    Partial<PaymentRecord> & { id: string; type: string; from: string; to: string }
+  >
+  return records.map((p) => ({
     id: p.id,
     type: p.type,
     amount: p.amount ?? "0",
@@ -75,9 +83,9 @@ export async function fetchPayments(
     to: p.to,
     asset_code: p.asset_code,
     asset_issuer: p.asset_issuer,
-    asset_type: p.asset_type,
+    asset_type: p.asset_type ?? "",
     memo: p.memo,
-    created_at: p.created_at,
+    created_at: p.created_at ?? "",
   }))
 }
 
@@ -89,7 +97,7 @@ export async function findStrictSendPaths(
   const resp = await server
     .strictSendPaths(sourceAsset, sourceAmount, destinationAssets)
     .call()
-  return resp.records.map((r: any) => ({
+  return (resp.records as unknown as Path[]).map((r) => ({
     source_amount: r.source_amount,
     destination_amount: r.destination_amount,
     path: r.path,
@@ -104,7 +112,7 @@ export async function findStrictReceivePaths(
   const resp = await server
     .strictReceivePaths(sourceAssets, destinationAsset, destinationAmount)
     .call()
-  return resp.records.map((r: any) => ({
+  return (resp.records as unknown as Path[]).map((r) => ({
     source_amount: r.source_amount,
     destination_amount: r.destination_amount,
     path: r.path,

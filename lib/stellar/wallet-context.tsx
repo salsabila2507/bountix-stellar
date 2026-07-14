@@ -69,7 +69,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (publicKey && isLocked === false) {
-      refreshAccount()
+      queueMicrotask(() => {
+        void refreshAccount()
+      })
     }
   }, [publicKey, isLocked, refreshAccount])
 

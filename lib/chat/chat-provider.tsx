@@ -23,7 +23,8 @@ export function useChat() {
 }
 
 export function ChatProvider({ children }: { children: ReactNode }) {
-  const chatRef = useRef<ReturnType<typeof TencentCloudChat.create> | null>(null)
+  const chatRef = useRef<ChatSDK | null>(null)
+  const [chat, setChat] = useState<ChatSDK | null>(null)
   const [isReady, setIsReady] = useState(false)
 
   useEffect(() => {
@@ -49,6 +50,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       if (chatRef.current) {
         chatRef.current.destroy()
         chatRef.current = null
+        setChat(null)
       }
       setIsReady(false)
     }
@@ -56,9 +58,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (cancelled || !user) return
 
-      const chat = TencentCloudChat.create({ SDKAppID })
+      const chat = TencentCloudChat.create({ SDKAppID: SDKAPPID })
       chat.setLogLevel(1)
       chatRef.current = chat
+      setChat(chat)
 
       chat.on(TencentCloudChat.EVENT.SDK_READY, () => {
         if (!cancelled) setIsReady(true)
@@ -86,7 +89,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <ChatContext.Provider value={{ chat: chatRef.current, isReady }}>
+    <ChatContext.Provider value={{ chat, isReady }}>
       {children}
     </ChatContext.Provider>
   )

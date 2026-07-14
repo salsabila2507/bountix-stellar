@@ -241,8 +241,6 @@ export async function decideApplicationAction(
       const title = (task as { title: string } | null)?.title ?? "task";
       const creatorId =
         (task as { creator_id: string } | null)?.creator_id ?? null;
-      // Pick the right message
-      const verb = decision === "accepted" ? "accepted" : "rejected";
       // Notify applicant
       await supabase.from("notifications").insert({
         user_id: fullApp.applicant_id,

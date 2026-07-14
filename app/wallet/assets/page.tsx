@@ -17,7 +17,11 @@ export default function AssetsPage() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (publicKey && !isLocked) {
+    if (!publicKey || isLocked) return
+    let cancelled = false
+
+    queueMicrotask(() => {
+      if (cancelled) return
       setLoading(true)
       Promise.all(
         KNOWN_SOROBAN_TOKENS.map(async (t) => {
@@ -26,12 +30,21 @@ export default function AssetsPage() {
         }),
       )
         .then((results) => {
+          if (cancelled) return
           const map: Record<string, bigint | null> = {}
           for (const r of results) map[r.name] = r.balance
           setBalances(map)
         })
-        .catch(() => setBalances({}))
-        .finally(() => setLoading(false))
+        .catch(() => {
+          if (!cancelled) setBalances({})
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false)
+        })
+    })
+
+    return () => {
+      cancelled = true
     }
   }, [publicKey, isLocked])
 

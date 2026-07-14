@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { ForgotPasswordForm } from "@/components/auth/forgot-password-form";
-import { createClient } from "@/utils/supabase/server";
 
 export const dynamic = "force-dynamic";
 

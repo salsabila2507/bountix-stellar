@@ -57,7 +57,8 @@ export async function POST(request: NextRequest) {
       .eq("id", user.id)
       .maybeSingle();
 
-    const workerName = (profile as any)?.display_name ?? (profile as any)?.username ?? "Anonymous";
+    const profileRow = profile as { username?: string | null; display_name?: string | null } | null;
+    const workerName = profileRow?.display_name ?? profileRow?.username ?? "Anonymous";
 
     const { data: existing } = await admin
       .from("disputes")

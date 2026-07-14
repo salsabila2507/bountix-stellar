@@ -304,7 +304,6 @@ export default async function ApplicantsPage({ params }: RouteParams) {
                 ["Website", socialLinks.website],
               ].filter((entry): entry is [string, string] => Boolean(entry[1]));
               const subs = subsByApp.get(app.id) ?? [];
-              const latestSubmissionId = subs[0]?.id ?? null;
 
               return (
                 <article

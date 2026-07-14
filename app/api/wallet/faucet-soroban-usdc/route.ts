@@ -88,8 +88,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ error: "Transaction timed out" }, { status: 500 })
-  } catch (err: any) {
-    const msg = err?.message ?? "Unknown error"
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown error"
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

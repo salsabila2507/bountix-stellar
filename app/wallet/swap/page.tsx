@@ -21,12 +21,16 @@ import { Asset } from "@stellar/stellar-sdk"
 
 const USDC_ISSUER = "GCU6VGJXQR6RPRCQ2W55DEOAAFSKFE6UEQYTHCQ2P7NIA3UIS72NJEKL"
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback
+}
+
 const COMMON_ASSETS: { code: string; issuer?: string; label: string }[] = [
   { code: "XLM", label: "XLM – Stellar Lumens" },
   { code: "USDC", issuer: USDC_ISSUER, label: "USDC – USD Coin" },
 ]
 
-function formatBal(balance: string, code?: string): string {
+function formatBal(balance: string): string {
   const n = Number.parseFloat(balance)
   if (isNaN(n)) return "0"
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 7 })
@@ -99,8 +103,8 @@ export default function SwapPage() {
         setPaths(result)
         setSelectedPath(result[0])
       }
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to find paths.")
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to find paths."))
     } finally {
       setLoading(false)
     }
@@ -115,7 +119,7 @@ export default function SwapPage() {
       const wallet = await requestUnlock(pincode)
       const sendAsset = assetFromCode(fromAsset, fromIssuer || undefined)
       const destAsset = assetFromCode(toAsset, toIssuer || undefined)
-      const pathAssets: Asset[] = selectedPath.path.map((p: any) =>
+      const pathAssets: Asset[] = selectedPath.path.map((p) =>
         p.asset_type === "native"
           ? Asset.native()
           : new Asset(p.asset_code!, p.asset_issuer!)
@@ -138,8 +142,8 @@ export default function SwapPage() {
       setAmount("")
       setPaths([])
       setSelectedPath(null)
-    } catch (err: any) {
-      setError(err?.message ?? "Swap failed.")
+    } catch (err) {
+      setError(getErrorMessage(err, "Swap failed."))
     } finally {
       setSwapping(false)
     }
@@ -305,7 +309,7 @@ export default function SwapPage() {
                   </p>
                   {p.path.length > 0 && (
                     <p className="text-xs text-[#5a3b66] mt-1">
-                      Path: {p.path.map((h: any) => h.asset_code || "XLM").join(" → ")}
+                      Path: {p.path.map((h) => h.asset_code || "XLM").join(" → ")}
                     </p>
                   )}
                 </div>

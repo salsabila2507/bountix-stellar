@@ -12,7 +12,7 @@ import {
 import { createGlobalNotificationAction } from "@/app/admin/actions";
 import { SiteHeader } from "@/components/site-header";
 import { DbTaskCard } from "@/components/marketplace/db-task-card";
-import { DisputeCard } from "@/components/admin/dispute-card";
+import { DisputeCard, type Dispute } from "@/components/admin/dispute-card";
 import { EscrowReleaseAdminPanel, type ReleaseRequest } from "@/components/admin/escrow-release-admin-panel";
 import { createTranslator } from "@/lib/i18n";
 import { getRequestLocale } from "@/lib/i18n/server";
@@ -85,7 +85,20 @@ async function loadAdmin() {
     .order("created_at", { ascending: false })
     .limit(50);
 
-  const releaseRequests: ReleaseRequest[] = (releaseSubs ?? []).map((s: any) => ({
+  type ReleaseSubRow = {
+    id: string;
+    task_id: string;
+    created_at: string;
+    tasks?: { title?: string | null; reward_amount?: number | null } | null;
+    profiles?: {
+      display_name?: string | null;
+      username?: string | null;
+      wallet_address?: string | null;
+    } | null;
+  };
+  const releaseRequests: ReleaseRequest[] = (
+    (releaseSubs ?? []) as unknown as ReleaseSubRow[]
+  ).map((s) => ({
     submissionId: s.id,
     taskId: s.task_id,
     taskTitle: s.tasks?.title ?? "Untitled",
@@ -191,7 +204,7 @@ async function loadAdmin() {
     authorized: true as const,
     officialTasks: (tasks ?? []) as DbTask[],
     profiles: (profiles ?? []) as AdminProfile[],
-    openDisputes: (openDisputes ?? []) as any[],
+    openDisputes: (openDisputes ?? []) as unknown as Dispute[],
     releaseRequests,
     stats: {
       pendingApps: pendingApps ?? 0,
@@ -299,7 +312,7 @@ export default async function AdminHomePage() {
                 Workers disputed the rejection of their submissions. Review and resolve.
               </p>
               <div className="comic-card mt-6 grid gap-4 bg-white p-5 sm:p-6">
-                {result.openDisputes.map((d: any) => (
+                {result.openDisputes.map((d) => (
                   <DisputeCard key={d.id} dispute={d} />
                 ))}
               </div>

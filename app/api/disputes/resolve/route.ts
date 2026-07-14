@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       .select("role")
       .eq("id", user.id)
       .maybeSingle();
-    if ((profile as any)?.role !== "admin") {
+    if ((profile as { role?: string } | null)?.role !== "admin") {
       return NextResponse.json({ error: "Only admins can resolve disputes" }, { status: 403 });
     }
 

@@ -65,7 +65,7 @@ function parseTaskInput(formData: FormData): {
   const reward_mode = String(formData.get("reward_mode") ?? "fixed");
   const winnerCountRaw = String(formData.get("raffle_winner_count") ?? "").trim();
   const eligibility_rules = String(formData.get("eligibility_rules") ?? "").trim();
-  let access_level = String(formData.get("access_level") ?? "open");
+  const access_level = String(formData.get("access_level") ?? "open");
   const payment_method = String(formData.get("payment_method") ?? "manual");
   const paymentTokenRaw = String(formData.get("payment_token") ?? "USDC");
 
@@ -198,14 +198,14 @@ async function loadActor() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, role")
+    .select("id, role, username")
     .eq("id", userId)
     .maybeSingle();
 
   return {
     supabase,
     userId,
-    profile: profile as | { id: string; role: string } | null,
+    profile: profile as | { id: string; role: string; username: string | null } | null,
   };
 }
 

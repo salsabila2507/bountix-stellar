@@ -10,6 +10,10 @@ import { friendbotFund } from "@/lib/stellar/horizon"
 import { buildChangeTrust, signTransaction, submitTransaction } from "@/lib/stellar/transactions"
 import { USDC_CLASSIC_ISSUER, USDC_CLASSIC_CODE } from "@/lib/payments"
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback
+}
+
 async function saveWalletAddress(address: string): Promise<void> {
   try {
     await fetch("/api/wallet/address", {
@@ -131,9 +135,9 @@ export default function WalletSignup() {
                       const signed = signTransaction(trustTx, secretKeyBuf)
                       await submitTransaction(signed)
                       setFundMessage(prev => (prev ?? "") + " + USDC trustline added.")
-                    } catch (tlErr: any) {
+                    } catch (tlErr) {
                       console.warn("Failed to add USDC trustline:", tlErr)
-                      setFundMessage(prev => (prev ?? "") + " (trustline skipped: " + tlErr.message + ")")
+                      setFundMessage(prev => (prev ?? "") + " (trustline skipped: " + getErrorMessage(tlErr, "unknown error") + ")")
                     }
                   }
                 } catch {
@@ -309,8 +313,8 @@ export default function WalletSignup() {
                     setImportedKey(wallet.secretKey)
                     saveWalletAddress(wallet.publicKey)
                     setStep("done")
-                  } catch (err: any) {
-                    setError(err?.message ?? "Failed to import wallet")
+                  } catch (err) {
+                    setError(getErrorMessage(err, "Failed to import wallet"))
                   } finally {
                     setLoading(false)
                   }
@@ -396,8 +400,8 @@ export default function WalletSignup() {
                   setSecretKeyBuf(wallet.secretKey)
                   saveWalletAddress(wallet.publicKey)
                   setStep("confirm")
-                } catch (err: any) {
-                  setError(err?.message ?? "Failed to create wallet")
+                } catch (err) {
+                  setError(getErrorMessage(err, "Failed to create wallet"))
                 } finally {
                   setLoading(false)
                 }

@@ -91,7 +91,6 @@ async function loadMine() {
     myApps,
     tasksById,
     subsByApp,
-    profilesByUser,
     currentUserId: user.id,
   };
 }
@@ -106,7 +105,6 @@ export default async function MyApplicationsPage() {
     myApps,
     tasksById,
     subsByApp,
-    profilesByUser,
     currentUserId,
   } = data;
 
@@ -154,7 +152,6 @@ export default async function MyApplicationsPage() {
             {myApps.map((a) => {
               const task = tasksById.get(a.task_id);
               const subs = subsByApp.get(a.id) ?? [];
-              const latestSubmissionId = subs[0]?.id ?? null;
               return (
                 <article
                   key={a.id}

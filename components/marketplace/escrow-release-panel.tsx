@@ -26,6 +26,13 @@ import { invokeSorobanAdmin } from "@/lib/stellar";
 import { releaseRaffleEscrowAction } from "@/app/applications/actions";
 
 type Phase = "idle" | "requesting" | "done" | "error";
+type RafflePhase =
+  | "idle"
+  | "assigning"
+  | "releasing"
+  | "recording"
+  | "done"
+  | "error";
 
 export function EscrowReleasePanel({
   submissionId,
@@ -44,7 +51,6 @@ export function EscrowReleasePanel({
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string>("");
-  const [alreadyRequested, setAlreadyRequested] = useState(false);
 
   async function handleRequestRelease() {
     setError("");
@@ -168,7 +174,7 @@ export function EscrowRaffleReleasePanel({
 }) {
   const t = createTranslator(locale);
   const router = useRouter();
-  const [phase, setPhase] = useState<Phase>("idle");
+  const [phase, setPhase] = useState<RafflePhase>("idle");
   const [error, setError] = useState<string>("");
   const [assignTxHash, setAssignTxHash] = useState<string>("");
   const [releaseTxHash, setReleaseTxHash] = useState<string>("");

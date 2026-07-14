@@ -220,7 +220,9 @@ export async function invokeSorobanWithKeypair(
     // Find the error diagnostic event and surface its data clearly
     let panicData = "(unknown panic)";
     try {
-      const ev = simulation.events as any[];
+      const ev = simulation.events as unknown as Array<{
+        event?: { body?: { _value?: { _attributes?: { data?: unknown } } } };
+      }>;
       // The first event is usually the fn_call, the second is the error.
       const last = ev[ev.length - 1];
       if (last?.event?.body?._value?._attributes?.data) {

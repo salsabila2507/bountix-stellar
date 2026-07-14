@@ -11,15 +11,21 @@ import { ConfirmationModal } from "@/components/wallet/confirmation-modal"
 import { Asset } from "@stellar/stellar-sdk"
 import { addLocalTransaction } from "@/lib/stellar/transaction-store"
 
+type MemoType = "none" | "text" | "id"
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback
+}
+
 export default function SendPage() {
   const { publicKey, isLocked, userId, refreshAccount } = useWallet()
-  const { secretKey, requestUnlock, clearKey } = useSecretKey()
+  const { requestUnlock, clearKey } = useSecretKey()
 
   const [destination, setDestination] = useState("")
   const [assetCode, setAssetCode] = useState("XLM")
-  const [assetIssuer, setAssetIssuer] = useState("")
+  const assetIssuer = ""
   const [amount, setAmount] = useState("")
-  const [memoType, setMemoType] = useState<"none" | "text" | "id">("none")
+  const [memoType, setMemoType] = useState<MemoType>("none")
   const [memoValue, setMemoValue] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -80,8 +86,8 @@ export default function SendPage() {
       } catch {
         // non-blocking
       }
-    } catch (err: any) {
-      setConfirmError(err.message ?? "Transaction failed")
+    } catch (err) {
+      setConfirmError(getErrorMessage(err, "Transaction failed"))
     } finally {
       setLoading(false)
     }
@@ -167,7 +173,7 @@ export default function SendPage() {
           <div className="mt-1 flex gap-2">
             <select
               value={memoType}
-              onChange={(e) => setMemoType(e.target.value as any)}
+              onChange={(e) => setMemoType(e.target.value as MemoType)}
               className="w-24 rounded-lg border-2 border-[#140625] bg-[#fffaf4] px-2 py-2 text-sm font-bold text-[#140625] outline-none focus:bg-white"
             >
               <option value="none">None</option>

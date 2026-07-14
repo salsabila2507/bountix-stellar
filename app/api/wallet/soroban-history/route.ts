@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
-import { rpc, StrKey, Address } from "@stellar/stellar-sdk"
+import { rpc, StrKey } from "@stellar/stellar-sdk"
 import { STELLAR_USDC_ADDRESS, STELLAR_USDT_ADDRESS } from "@/lib/payments"
+
+/** Loose shape of the decoded Soroban XDR nodes we walk through below. */
+interface ScVal {
+  _switch?: { name?: string }
+  _value?: unknown
+  _id?: unknown
+}
 
 const SOROBAN_RPC_URL =
   process.env.NEXT_PUBLIC_SOROBAN_RPC_URL ?? "https://soroban-testnet.stellar.org"
@@ -17,37 +24,38 @@ interface TransferEvent {
   timestamp: string
 }
 
-function isTransferEvent(topic: any[]): boolean {
+function isTransferEvent(topic: ScVal[]): boolean {
   try {
     if (!topic || topic.length < 2) return false
     const first = topic[0]
     if (first?._switch?.name !== "scvSymbol") return false
-    const symBuf = Buffer.from(first._value)
+    const symBuf = Buffer.from(first._value as Uint8Array)
     return symBuf.toString() === "transfer"
   } catch {
     return false
   }
 }
 
-function extractAddress(scVal: any): string | null {
+function extractAddress(scVal: ScVal): string | null {
   try {
     if (scVal?._switch?.name !== "scvAddress") return null
-    const addr = scVal._value
+    const addr = scVal._value as ScVal
     if (addr?._switch?.name !== "scAddressTypeAccount") return null
-    const accountId = addr._value
+    const accountId = addr._value as ScVal
     if (accountId?._switch?.name !== "publicKeyTypeEd25519") return null
-    const buf = Buffer.from(accountId._value)
+    const buf = Buffer.from(accountId._value as Uint8Array)
     return StrKey.encodeEd25519PublicKey(buf)
   } catch {
     return null
   }
 }
 
-function extractI128(value: any): bigint {
+function extractI128(value: ScVal): bigint {
   try {
     if (value._switch?.name === "scvI128") {
-      const hi = BigInt(value._value?.hi?._value ?? "0")
-      const lo = BigInt(value._value?.lo?._value ?? "0")
+      const parts = value._value as { hi?: { _value?: string }; lo?: { _value?: string } }
+      const hi = BigInt(parts?.hi?._value ?? "0")
+      const lo = BigInt(parts?.lo?._value ?? "0")
       // hi is signed, lo is unsigned
       return (hi << BigInt(64)) + lo
     }
@@ -55,13 +63,30 @@ function extractI128(value: any): bigint {
   return BigInt(0)
 }
 
-function getContractId(event: any): string {
+function getContractId(event: { contractId?: unknown }): string {
   try {
-    const buf = Buffer.from(event.contractId._id)
-    return buf.toString("hex")
+    const contract = event.contractId
+    if (!contract) return ""
+    if (typeof contract === "string") return contract
+
+    const publicContract = contract as {
+      contractId?: () => string
+      toString?: () => string
+    }
+    const contractId = publicContract.contractId?.()
+    if (contractId) return contractId
+
+    const rawId = (contract as unknown as { _id?: unknown })._id
+    if (rawId instanceof Uint8Array) {
+      return StrKey.encodeContract(Buffer.from(rawId))
+    }
+
+    const contractString = publicContract.toString?.()
+    if (contractString && contractString !== "[object Object]") return contractString
   } catch {
     return ""
   }
+  return ""
 }
 
 export async function GET(req: NextRequest) {
@@ -99,22 +124,22 @@ export async function GET(req: NextRequest) {
 
     for (const event of eventsResult.events) {
       try {
-        const topic = event.topic as unknown as any[]
+        const topic = event.topic as unknown as ScVal[]
         if (!isTransferEvent(topic)) continue
 
         const fromAddr = extractAddress(topic[1])
         const toAddr = extractAddress(topic[2])
         if (!fromAddr || !toAddr) continue
 
-        const amountUnits = extractI128(event.value as any)
+        const amountUnits = extractI128(event.value as unknown as ScVal)
         const amountNum = Number(amountUnits) / 10_000_000
         const amountHuman = amountNum.toFixed(7)
 
-        const contractHex = getContractId(event)
-        const token = tokenMap[contractHex] ?? contractHex.slice(0, 8)
+        const contractId = getContractId(event)
+        const token = tokenMap[contractId.toLowerCase()] ?? contractId.slice(0, 8)
 
         allTransfers.push({
-          txHash: (event as any).txHash ?? "",
+          txHash: (event as { txHash?: string }).txHash ?? "",
           ledger: event.ledger ?? 0,
           from: fromAddr,
           to: toAddr,
@@ -136,7 +161,8 @@ export async function GET(req: NextRequest) {
     )
 
     return NextResponse.json({ transfers: userTransfers })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message, transfers: [] }, { status: 200 })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error"
+    return NextResponse.json({ error: message, transfers: [] }, { status: 200 })
   }
 }

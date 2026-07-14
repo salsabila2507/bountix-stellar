@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       .select("role")
       .eq("id", user.id)
       .maybeSingle();
-    const isAdminUser = (profile as any)?.role === "admin";
+    const isAdminUser = (profile as { role?: string } | null)?.role === "admin";
 
     let query = admin.from("disputes").select("*");
 
