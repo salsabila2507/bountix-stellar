@@ -257,8 +257,19 @@ export function EscrowFundPanel({
     );
   }
 
+  if (!isLoaded) {
+    return (
+      <div className="comic-card-soft flex min-h-48 items-center justify-center bg-[#f2e6ff] p-5">
+        <LoaderCircle
+          aria-label="Loading wallet"
+          className="h-6 w-6 animate-spin text-[#7c3cff]"
+        />
+      </div>
+    );
+  }
+
   // State: no wallet saved yet → CTA to create one
-  if (isLoaded && !publicKey) {
+  if (!publicKey) {
     return (
       <div className="comic-card-soft bg-[#f2e6ff] p-5">
         <p className="comic-chip bg-[#7c3cff] text-white">

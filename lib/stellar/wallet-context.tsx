@@ -36,6 +36,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let currentUid: string | null = null
     let loadSeq = 0
+    let authEventSeq = 0
 
     const applyStoredWallet = (uid: string | null, stored: StoredWallet | null) => {
       currentUid = uid
@@ -45,49 +46,61 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setPublicKey(stored?.publicKey ?? null)
     }
 
-    const loadWalletForUser = (uid: string | null) => {
+    const loadWalletForUser = async (uid: string | null) => {
       const seq = ++loadSeq
+      setIsLoaded(false)
+
+      if (!uid) {
+        applyStoredWallet(null, null)
+        if (seq === loadSeq) setIsLoaded(true)
+        return
+      }
+
       const stored = uid ? getStoredWallet(uid) : null
-      applyStoredWallet(uid, stored)
+      if (stored) {
+        applyStoredWallet(uid, stored)
+        if (seq === loadSeq) setIsLoaded(true)
+        return
+      }
 
-      if (!uid || stored) return
-
-      queueMicrotask(() => {
-        void supabase
+      let resolvedWallet: StoredWallet | null = null
+      try {
+        const { data } = await supabase
           .from("profiles")
           .select("wallet_address")
           .eq("id", uid)
           .maybeSingle()
-          .then(
-            ({ data }) => {
-              if (seq !== loadSeq) return
-              const legacy = getStoredWallet(null)
-              if (!legacy || !data?.wallet_address || legacy.publicKey !== data.wallet_address) return
-              saveWallet(legacy.publicKey, legacy.encrypted, uid, legacy.authMode ?? "password")
-              applyStoredWallet(uid, legacy)
-            },
-            () => {
-            // Profile lookup is only for legacy wallet migration; normal loading already completed.
-            },
-          )
-      })
+
+        const legacy = getStoredWallet(null)
+        if (legacy && data?.wallet_address === legacy.publicKey) {
+          saveWallet(legacy.publicKey, legacy.encrypted, uid, legacy.authMode ?? "password")
+          resolvedWallet = legacy
+        }
+      } catch {
+        // Legacy migration is best-effort; a scoped wallet remains the source of truth.
+      }
+
+      if (seq !== loadSeq) return
+      applyStoredWallet(uid, resolvedWallet)
+      setIsLoaded(true)
     }
 
     const handleWalletUpdated = () => {
-      loadWalletForUser(currentUid)
+      void loadWalletForUser(currentUid)
     }
 
     const supabase = createClient()
     window.addEventListener("bountix-wallet-updated", handleWalletUpdated)
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      loadWalletForUser(user?.id ?? null)
-      setIsLoaded(true)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      authEventSeq += 1
+      void loadWalletForUser(session?.user?.id ?? null)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      loadWalletForUser(session?.user?.id ?? null)
-      setIsLoaded(true)
+    const initialAuthEventSeq = authEventSeq
+    void supabase.auth.getUser().then(({ data: { user } }) => {
+      if (authEventSeq !== initialAuthEventSeq) return
+      void loadWalletForUser(user?.id ?? null)
     })
 
     return () => {
