@@ -34,6 +34,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const supabase = createClient()
     let cancelled = false
+    const bootTimer = window.setTimeout(() => {
+      if (!cancelled && !chatRef.current) {
+        setError("Chat auth session timed out")
+      }
+    }, 10_000)
 
     async function init(userId: string) {
       try {
@@ -75,7 +80,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
 
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (cancelled || !user) return
+      window.clearTimeout(bootTimer)
+      if (cancelled) return
+      if (!user) {
+        setError("Chat user session missing")
+        return
+      }
 
       if (!Number.isFinite(SDKAPPID) || SDKAPPID <= 0) {
         setError("Chat SDKAppID missing")
@@ -122,6 +132,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       })
 
       init(user.id)
+    }).catch((err) => {
+      window.clearTimeout(bootTimer)
+      console.error("[chat] auth session error:", err)
+      if (!cancelled) setError("Chat auth session failed")
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -134,6 +148,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     })
 
     return () => {
+      window.clearTimeout(bootTimer)
       subscription.unsubscribe()
       cleanup()
     }
