@@ -1,19 +1,51 @@
 import { Api } from "tls-sig-api-v2";
 
-const SDKAPPID = Number(process.env.NEXT_PUBLIC_TENCENT_CHAT_SDK_APP_ID ?? "331419296728");
-const SECRETKEY =
-  process.env.TENCENT_CHAT_SECRET_KEY ??
-  "b1f331419296728b5781b9f3468b1f4d813150377e4574516c1ef60e274fe150";
 const EXPIRE = 86400 * 180;
 
-export function generateUserSig(userId: string): string {
-  if (!Number.isFinite(SDKAPPID) || SDKAPPID <= 0) {
+const SDK_APP_ID_KEYS = [
+  "TENCENT_CHAT_SDK_APP_ID",
+  "NEXT_PUBLIC_TENCENT_CHAT_SDK_APP_ID",
+  "SDKAPPID",
+  "SDKAppID",
+  "NEXT_PUBLIC_SDKAPPID",
+  "NEXT_PUBLIC_SDKAppID",
+];
+
+const SECRET_KEY_KEYS = [
+  "TENCENT_CHAT_SECRET_KEY",
+  "TENCENT_CHAT_SDK_SECRET_KEY",
+  "SDKSECRETKEY",
+  "SDKSecretKey",
+  "SECRETKEY",
+  "SecretKey",
+];
+
+function readEnv(keys: string[]): string | null {
+  for (const key of keys) {
+    const value = process.env[key]?.trim();
+    if (value) return value;
+  }
+  return null;
+}
+
+export function getTencentChatSdkAppId(): number {
+  const value = readEnv(SDK_APP_ID_KEYS);
+  const sdkAppId = Number(value);
+  if (!Number.isInteger(sdkAppId) || sdkAppId <= 0) {
     throw new Error("Missing Tencent Chat SDKAppID");
   }
-  if (!SECRETKEY) {
-    throw new Error("Missing Tencent Chat secret key");
-  }
+  return sdkAppId;
+}
 
-  const api = new Api(SDKAPPID, SECRETKEY);
+function getTencentChatSecretKey(): string {
+  const secretKey = readEnv(SECRET_KEY_KEYS);
+  if (!secretKey) {
+    throw new Error("Missing Tencent Chat SDKSecretKey");
+  }
+  return secretKey;
+}
+
+export function generateUserSig(userId: string): string {
+  const api = new Api(getTencentChatSdkAppId(), getTencentChatSecretKey());
   return api.genSig(userId, EXPIRE);
 }

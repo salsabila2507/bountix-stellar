@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { generateUserSig } from "@/lib/chat/usersig";
+import { toTencentChatUserId } from "@/lib/chat/user-id";
+import { generateUserSig, getTencentChatSdkAppId } from "@/lib/chat/usersig";
 
 export async function GET() {
   try {
@@ -9,8 +10,14 @@ export async function GET() {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const userSig = generateUserSig(user.id);
-    return NextResponse.json({ userSig, userId: user.id });
+
+    const chatUserId = toTencentChatUserId(user.id);
+    const userSig = generateUserSig(chatUserId);
+    return NextResponse.json({
+      sdkAppId: getTencentChatSdkAppId(),
+      userSig,
+      userId: chatUserId,
+    });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Internal server error" },

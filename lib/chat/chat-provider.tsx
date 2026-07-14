@@ -4,8 +4,6 @@ import { createContext, useContext, useEffect, useState, useRef, type ReactNode 
 import TencentCloudChat from "@tencentcloud/lite-chat"
 import { createClient } from "@/utils/supabase/client"
 
-const SDKAPPID = Number(process.env.NEXT_PUBLIC_TENCENT_CHAT_SDK_APP_ID ?? "331419296728")
-
 type ChatSDK = ReturnType<typeof TencentCloudChat.create>
 
 type ChatContextValue = {
@@ -43,15 +41,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    function createChatClient() {
+    function createChatClient(sdkAppId: number) {
       if (chatRef.current) return chatRef.current
 
-      if (!Number.isFinite(SDKAPPID) || SDKAPPID <= 0) {
+      if (!Number.isInteger(sdkAppId) || sdkAppId <= 0) {
         setError("Chat SDKAppID missing")
         return null
       }
 
-      const nextChat = TencentCloudChat.create({ SDKAppID: SDKAPPID })
+      const nextChat = TencentCloudChat.create({ SDKAppID: sdkAppId })
       if (!nextChat) {
         setError("Chat SDK failed to initialize")
         return null
@@ -101,7 +99,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           return
         }
 
-        const { userSig, userId } = (await res.json()) as {
+        const { sdkAppId, userSig, userId } = (await res.json()) as {
+          sdkAppId?: number
           userSig?: string
           userId?: string
         }
@@ -111,7 +110,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           return
         }
 
-        const nextChat = createChatClient()
+        const nextChat = createChatClient(Number(sdkAppId))
         if (!nextChat) return
 
         clearReadyTimer()

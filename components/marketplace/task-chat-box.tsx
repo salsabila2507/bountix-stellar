@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react"
 import { MessageSquareText, Send, LoaderCircle } from "lucide-react"
 import TencentCloudChat from "@tencentcloud/lite-chat"
 import { useChat } from "@/lib/chat/chat-provider"
+import { toTencentChatUserId } from "@/lib/chat/user-id"
 import {
   createTranslator,
   DATE_LOCALE,
@@ -71,15 +72,17 @@ export function TaskChatBox({
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
   const listRef = useRef<HTMLDivElement>(null)
+  const tencentCurrentUserId = toTencentChatUserId(currentUserId)
+  const tencentOtherUserId = otherUserId ? toTencentChatUserId(otherUserId) : null
 
   useEffect(() => {
-    if (!chat || !isReady || !otherUserId) {
+    if (!chat || !isReady || !tencentOtherUserId) {
       queueMicrotask(() => setLoading(false))
       return
     }
 
     const chatClient = chat
-    const conversationID = `C2C${otherUserId}`
+    const conversationID = `C2C${tencentOtherUserId}`
     let cancelled = false
 
     async function load() {
@@ -141,7 +144,7 @@ export function TaskChatBox({
       cancelled = true
       chatClient.off(TencentCloudChat.EVENT.MESSAGE_RECEIVED, onMessageReceived)
     }
-  }, [chat, isReady, otherUserId, applicationId])
+  }, [chat, isReady, tencentOtherUserId, applicationId])
 
   useEffect(() => {
     if (listRef.current) {
@@ -151,12 +154,12 @@ export function TaskChatBox({
 
   const handleSend = useCallback(async () => {
     const trimmed = text.trim()
-    if (!trimmed || sending || !chat || !isReady || !otherUserId) return
+    if (!trimmed || sending || !chat || !isReady || !otherUserId || !tencentOtherUserId) return
 
     setSending(true)
     try {
       const message = chat.createTextMessage({
-        to: otherUserId,
+        to: tencentOtherUserId,
         conversationType: TencentCloudChat.TYPES.CONV_C2C,
         payload: { text: trimmed },
         cloudCustomData: JSON.stringify({ taskId, applicationId }),
@@ -174,7 +177,7 @@ export function TaskChatBox({
     } finally {
       setSending(false)
     }
-  }, [text, sending, chat, isReady, otherUserId, taskId, applicationId])
+  }, [text, sending, chat, isReady, otherUserId, tencentOtherUserId, taskId, applicationId])
 
   const loggedIn = isReady && otherUserId
 
@@ -201,7 +204,7 @@ export function TaskChatBox({
           </p>
         ) : (
           messages.map((msg) => {
-            const isMine = msg.senderId === currentUserId
+            const isMine = msg.senderId === tencentCurrentUserId
             return (
               <article
                 key={msg.id}
