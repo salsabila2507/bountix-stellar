@@ -2,34 +2,47 @@ import fs from "node:fs";
 import path from "node:path";
 
 const outFile = path.resolve("docs/bountix-pitch-deck.pptx");
+const screenshotDir = path.resolve("docs/pitch-screenshots");
+
+const screenshots = {
+  adminRelease: "Screenshot_20260715_083758.jpg",
+  landing: "Screenshot_20260715_083834.jpg",
+  taskList: "Screenshot_20260715_083840.jpg",
+  completedWork: "Screenshot_20260715_083944.jpg",
+  serviceOffer: "Screenshot_20260715_084006.jpg",
+  walletUnlock: "Screenshot_20260715_084416.jpg",
+  wallet: "Screenshot_20260715_084437.jpg",
+};
 
 const slides = [
   {
     title: "Bountix",
-    kicker: "Escrow-powered task marketplace for everyday work in SEA",
+    kicker: "Flexible task and service marketplace powered by Stellar escrow",
     bullets: [
-      "Post tasks, accept taskers, fund escrow, and release payouts in one flow",
-      "Built for freelance tasks, micro-jobs, errands, local services, and personal shopping assistance",
-      "Powered by Stellar USDC escrow to make informal work safer and more transparent",
+      "Request help, offer services, coordinate work, and settle payments in one product",
+      "Built for micro-work, errands, local services, personal shopping assistance, and community tasks",
+      "Uses Stellar USDC escrow to make flexible work safer, trackable, and easier to trust",
     ],
+    images: [{ file: screenshots.landing, label: "Marketplace Home" }],
   },
   {
     title: "The Problem",
     bullets: [
-      "Everyday task work in SEA often happens through chat groups and social media",
+      "Everyday work and service requests in SEA often happen through chat groups and social media",
       "Requesters and taskers rely on informal trust instead of clear payment protection",
       "Taskers risk delayed or unpaid work, while requesters risk paying before completion",
-      "Most platforms are too rigid for flexible real-world tasks like errands or personal shopping",
+      "Most platforms are too rigid for mixed real-world tasks, local services, and personal shopping",
     ],
   },
   {
     title: "Our Solution",
     bullets: [
-      "Bountix turns informal task requests into secure, trackable task transactions",
-      "A requester creates a task, selects a tasker, and locks payment before work starts",
-      "Taskers complete work with participant-only chat, notifications, and task status tracking",
+      "Bountix turns informal task and service requests into secure, trackable transactions",
+      "Requesters can post tasks, while creators and taskers can also publish service offers",
+      "Accepted participants coordinate work with chat, notifications, and task status tracking",
       "Escrow is released only after completion is approved by the requester or admin",
     ],
+    images: [{ file: screenshots.serviceOffer, label: "Service Offers" }],
   },
   {
     title: "Product Flow",
@@ -39,6 +52,11 @@ const slides = [
       "Requester funds the task escrow using USDC on Stellar",
       "Accepted participants coordinate in task chat and complete the work",
       "Requester or admin releases escrow and the tasker sees the payout in wallet history",
+    ],
+    images: [
+      { file: screenshots.taskList, label: "Browse Tasks" },
+      { file: screenshots.adminRelease, label: "Release Escrow" },
+      { file: screenshots.wallet, label: "Payout History" },
     ],
   },
   {
@@ -50,22 +68,29 @@ const slides = [
       "Wallet onboarding and payout readiness hide Stellar complexity from everyday users",
       "Stellar creates a practical payment rail for real-world consumer applications",
     ],
+    images: [{ file: screenshots.wallet, label: "USDC Payouts" }],
   },
   {
     title: "Built Prototype",
     bullets: [
-      "Task creation, browsing, applications, and acceptance flow",
+      "Task creation, browsing, applications, acceptance flow, and service offers",
       "Stellar wallet onboarding, USDC payout readiness, escrow funding, and release",
       "Participant-only Tencent Chat for accepted task conversations",
       "Notifications for applications, task updates, escrow events, and payouts",
       "Admin moderation with task removal reason and wallet transaction history",
+    ],
+    images: [
+      { file: screenshots.landing, label: "Home" },
+      { file: screenshots.taskList, label: "Tasks" },
+      { file: screenshots.serviceOffer, label: "Services" },
+      { file: screenshots.walletUnlock, label: "Wallet Unlock" },
     ],
   },
   {
     title: "Target Users",
     bullets: [
       "Requesters who need flexible help with online or real-world tasks",
-      "Taskers who want short-term income with clearer payment protection",
+      "Taskers and service providers who want short-term income with clearer payment protection",
       "Students, freelancers, creators, small businesses, and community organizers",
       "SEA communities where informal work already exists but payment trust is still manual",
     ],
@@ -79,13 +104,18 @@ const slides = [
       "Requester funds Stellar USDC escrow and admin/requester releases payout",
       "Tasker wallet shows recent transaction history after release",
     ],
+    images: [
+      { file: screenshots.taskList, label: "Tasks" },
+      { file: screenshots.adminRelease, label: "Admin Release" },
+      { file: screenshots.wallet, label: "Wallet" },
+    ],
   },
   {
     title: "Impact & Market Fit",
     bullets: [
       "Reduces payment risk in informal task work",
       "Makes digital dollar payouts accessible through a familiar task marketplace UX",
-      "Supports broad task categories instead of one narrow service vertical",
+      "Supports broad task and service categories instead of one narrow vertical",
       "Turns Stellar escrow into a real consumer workflow for SEA users",
     ],
   },
@@ -95,7 +125,7 @@ const slides = [
       "Add dispute resolution and evidence review",
       "Build reputation, tasker profiles, and completion history",
       "Improve mobile-first UX for field tasks and local services",
-      "Expand moderation, task categories, and payout reporting",
+      "Expand moderation, task categories, service discovery, and payout reporting",
       "Harden compliance, security, and production operations",
     ],
   },
@@ -139,7 +169,42 @@ function rectShape(id, x, y, w, h, fill, radius = false) {
   return `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Panel ${id}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${w}" cy="${h}"/></a:xfrm><a:prstGeom prst="${radius ? "roundRect" : "rect"}"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln><a:noFill/></a:ln></p:spPr></p:sp>`;
 }
 
+function imageShape(id, relId, x, y, w, h, label) {
+  const labelText = label
+    ? textShape(id + 100, x, y + h + 90000, w, 240000, label, {
+        size: 950,
+        color: theme.muted,
+      })
+    : "";
+
+  return `${rectShape(id + 200, x - 45000, y - 45000, w + 90000, h + 90000, theme.white, true)}<p:pic><p:nvPicPr><p:cNvPr id="${id}" name="${escapeXml(label || `Screenshot ${id}`)}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="${relId}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${w}" cy="${h}"/></a:xfrm><a:prstGeom prst="roundRect"><a:avLst/></a:prstGeom><a:ln w="12700"><a:solidFill><a:srgbClr val="E5E7EB"/></a:solidFill></a:ln></p:spPr></p:pic>${labelText}`;
+}
+
+function slideImagesXml(images = []) {
+  if (images.length === 0) return "";
+
+  const one = [{ x: 7000000, y: 1440000, w: 1420000, h: 3155000 }];
+  const three = [
+    { x: 4920000, y: 1760000, w: 1060000, h: 2355000 },
+    { x: 6200000, y: 1760000, w: 1060000, h: 2355000 },
+    { x: 7480000, y: 1760000, w: 1060000, h: 2355000 },
+  ];
+  const four = [
+    { x: 4660000, y: 1660000, w: 920000, h: 2045000 },
+    { x: 5800000, y: 1660000, w: 920000, h: 2045000 },
+    { x: 6940000, y: 1660000, w: 920000, h: 2045000 },
+    { x: 8080000, y: 1660000, w: 920000, h: 2045000 },
+  ];
+  const slots = images.length >= 4 ? four : images.length >= 3 ? three : one;
+
+  return images
+    .slice(0, slots.length)
+    .map((image, idx) => imageShape(30 + idx, `rId${idx + 1}`, slots[idx].x, slots[idx].y, slots[idx].w, slots[idx].h, image.label))
+    .join("");
+}
+
 function slideXml(slide, index) {
+  const hasImages = Boolean(slide.images?.length);
   const title = textShape(5, 640000, 620000, 7200000, 760000, slide.title, {
     size: index === 0 ? 5200 : 4200,
     bold: true,
@@ -151,8 +216,11 @@ function slideXml(slide, index) {
         color: theme.muted,
       })
     : "";
-  const bullets = textShape(7, 780000, slide.kicker ? 2180000 : 1840000, 7600000, 3600000, slide.bullets, {
-    size: 2050,
+  const bulletX = hasImages ? 720000 : 780000;
+  const bulletY = slide.kicker ? 2160000 : 1840000;
+  const bulletW = hasImages ? 4050000 : 7600000;
+  const bullets = textShape(7, bulletX, bulletY, bulletW, 3600000, slide.bullets, {
+    size: hasImages ? 1720 : 2050,
     bullet: true,
     color: theme.ink,
   });
@@ -161,9 +229,10 @@ function slideXml(slide, index) {
     color: theme.muted,
   });
   const accent = index % 2 === 0 ? theme.green : theme.amber;
+  const images = slideImagesXml(slide.images);
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="${theme.white}"/></a:solidFill><a:effectLst/></p:bgPr></p:bg><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>${rectShape(2, 0, 0, 9600000, 280000, accent)}${rectShape(3, 7200000, 430000, 1700000, 5200000, theme.panel, true)}${rectShape(4, 7380000, 800000, 1340000, 1340000, accent, true)}${title}${kicker}${bullets}${footer}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
+<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="${theme.white}"/></a:solidFill><a:effectLst/></p:bgPr></p:bg><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>${rectShape(2, 0, 0, 9600000, 280000, accent)}${rectShape(3, 7200000, 430000, 1700000, 5200000, theme.panel, true)}${rectShape(4, 7380000, 800000, 1340000, 1340000, accent, true)}${title}${kicker}${bullets}${images}${footer}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
 }
 
 function relsXml(targets) {
@@ -181,7 +250,7 @@ function contentTypesXml() {
   const overrides = slides
     .map((_, index) => `<Override PartName="/ppt/slides/slide${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`)
     .join("");
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>${overrides}</Types>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpg" ContentType="image/jpeg"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>${overrides}</Types>`;
 }
 
 function coreXml() {
@@ -191,6 +260,28 @@ function coreXml() {
 
 function appXml() {
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>Bountix</Application><PresentationFormat>On-screen Show (16:9)</PresentationFormat><Slides>${slides.length}</Slides></Properties>`;
+}
+
+const mediaFiles = [];
+const mediaNameBySource = new Map();
+
+for (const slide of slides) {
+  for (const image of slide.images ?? []) {
+    if (!mediaNameBySource.has(image.file)) {
+      const name = `image${mediaFiles.length + 1}.jpg`;
+      mediaNameBySource.set(image.file, name);
+      mediaFiles.push({ source: image.file, name });
+    }
+  }
+}
+
+function slideRelsXml(slide) {
+  const rels = (slide.images ?? []).map((image) => ({
+    type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
+    target: `../media/${mediaNameBySource.get(image.file)}`,
+  }));
+
+  return relsXml(rels);
 }
 
 const crcTable = new Uint32Array(256);
@@ -312,8 +403,12 @@ const entries = [
   },
   ...slides.flatMap((slide, index) => [
     { name: `ppt/slides/slide${index + 1}.xml`, data: slideXml(slide, index) },
-    { name: `ppt/slides/_rels/slide${index + 1}.xml.rels`, data: relsXml([]) },
+    { name: `ppt/slides/_rels/slide${index + 1}.xml.rels`, data: slideRelsXml(slide) },
   ]),
+  ...mediaFiles.map((media) => ({
+    name: `ppt/media/${media.name}`,
+    data: fs.readFileSync(path.join(screenshotDir, media.source)),
+  })),
 ];
 
 fs.mkdirSync(path.dirname(outFile), { recursive: true });
