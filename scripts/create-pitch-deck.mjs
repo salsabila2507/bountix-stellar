@@ -6,97 +6,97 @@ const outFile = path.resolve("docs/bountix-pitch-deck.pptx");
 const slides = [
   {
     title: "Bountix",
-    kicker: "Trusted Task Marketplace Powered by Stellar Escrow",
+    kicker: "Escrow-powered task marketplace for everyday work in SEA",
     bullets: [
-      "A consumer app for everyday tasks in SEA",
-      "Built for freelance tasks, errands, local services, micro-jobs, and personal shopping assistance",
-      "Uses USDC escrow on Stellar to make trust programmable",
+      "Post tasks, accept taskers, fund escrow, and release payouts in one flow",
+      "Built for freelance tasks, micro-jobs, errands, local services, and personal shopping assistance",
+      "Powered by Stellar USDC escrow to make informal work safer and more transparent",
     ],
   },
   {
-    title: "Problem",
+    title: "The Problem",
     bullets: [
-      "Many everyday tasks still happen through chat groups, social media, and personal networks",
-      "Requesters worry that work may not be completed after payment",
-      "Taskers worry about delayed or unpaid work after completing a task",
-      "Existing platforms are often too narrow, expensive, or not designed for flexible real-world tasks",
+      "Everyday task work in SEA often happens through chat groups and social media",
+      "Requesters and taskers rely on informal trust instead of clear payment protection",
+      "Taskers risk delayed or unpaid work, while requesters risk paying before completion",
+      "Most platforms are too rigid for flexible real-world tasks like errands or personal shopping",
     ],
   },
   {
-    title: "Solution",
+    title: "Our Solution",
     bullets: [
-      "Bountix turns informal task requests into secure, trackable transactions",
-      "Requesters post tasks, review applicants, choose taskers, and fund escrow",
-      "Taskers complete work and communicate through participant-only chat",
-      "Funds are released after approval by the requester or admin",
+      "Bountix turns informal task requests into secure, trackable task transactions",
+      "A requester creates a task, selects a tasker, and locks payment before work starts",
+      "Taskers complete work with participant-only chat, notifications, and task status tracking",
+      "Escrow is released only after completion is approved by the requester or admin",
     ],
   },
   {
-    title: "How It Works",
+    title: "Product Flow",
     bullets: [
-      "1. Requester creates a task with reward, location/category, and requirements",
-      "2. Taskers apply and discuss details in task chat after acceptance",
-      "3. Requester funds the task escrow using USDC on Stellar",
-      "4. Tasker completes the work and submits proof or updates",
-      "5. Escrow is released to the tasker after approval",
+      "Create a task with reward, category, deadline, and requirements",
+      "Taskers apply, requester reviews applicants, and one tasker is accepted",
+      "Requester funds the task escrow using USDC on Stellar",
+      "Accepted participants coordinate in task chat and complete the work",
+      "Requester or admin releases escrow and the tasker sees the payout in wallet history",
     ],
   },
   {
-    title: "Stellar Integration",
+    title: "Why Stellar",
     bullets: [
-      "USDC escrow is funded before work starts",
-      "On-chain release flow records payout activity transparently",
-      "Automatic wallet creation reduces onboarding friction for new users",
-      "USDC payout readiness handles Stellar trustline requirements",
-      "Wallet dashboard shows recent transaction activity",
+      "Fast and low-cost USDC settlement fits small task payments",
+      "Escrow makes payment trust programmable instead of verbal",
+      "On-chain release records improve transparency for both sides",
+      "Wallet onboarding and payout readiness hide Stellar complexity from everyday users",
+      "Stellar creates a practical payment rail for real-world consumer applications",
     ],
   },
   {
-    title: "Product Features",
+    title: "Built Prototype",
     bullets: [
       "Task creation, browsing, applications, and acceptance flow",
-      "Participant-only Tencent Chat integration for accepted task conversations",
-      "Notifications for applications, task updates, escrow activity, and payouts",
-      "Admin moderation to remove unsafe or prohibited tasks with a reason",
-      "Wallet onboarding, recovery, escrow funding, release, and transaction history",
+      "Stellar wallet onboarding, USDC payout readiness, escrow funding, and release",
+      "Participant-only Tencent Chat for accepted task conversations",
+      "Notifications for applications, task updates, escrow events, and payouts",
+      "Admin moderation with task removal reason and wallet transaction history",
     ],
   },
   {
     title: "Target Users",
     bullets: [
-      "Students, freelancers, creators, small business owners, and community organizers",
-      "People who need errands, local services, personal shopping assistance, or micro-work",
-      "Taskers who want flexible short-term income with better payment protection",
-      "SEA communities where informal work already happens but trust is still manual",
+      "Requesters who need flexible help with online or real-world tasks",
+      "Taskers who want short-term income with clearer payment protection",
+      "Students, freelancers, creators, small businesses, and community organizers",
+      "SEA communities where informal work already exists but payment trust is still manual",
     ],
   },
   {
-    title: "Demo Flow",
+    title: "Demo Highlights",
     bullets: [
-      "Sign in and automatically create a Stellar-ready wallet",
-      "Create a task and receive tasker applications",
-      "Accept an applicant and use participant-only chat",
-      "Fund escrow with USDC on Stellar",
-      "Release escrow and show tasker wallet transaction history",
+      "Google login creates a wallet automatically for new users",
+      "Requester creates a task, receives applications, and accepts a tasker",
+      "Accepted participants can use private task chat",
+      "Requester funds Stellar USDC escrow and admin/requester releases payout",
+      "Tasker wallet shows recent transaction history after release",
     ],
   },
   {
-    title: "Impact",
+    title: "Impact & Market Fit",
     bullets: [
-      "Makes informal work safer by locking payment before the task starts",
-      "Improves transparency for both requesters and taskers",
-      "Makes Stellar payments usable through a familiar consumer workflow",
-      "Supports real-world access to digital dollar payouts for flexible work in SEA",
+      "Reduces payment risk in informal task work",
+      "Makes digital dollar payouts accessible through a familiar task marketplace UX",
+      "Supports broad task categories instead of one narrow service vertical",
+      "Turns Stellar escrow into a real consumer workflow for SEA users",
     ],
   },
   {
-    title: "Roadmap",
+    title: "Next Steps",
     bullets: [
-      "Dispute resolution and evidence review workflow",
-      "Reputation, tasker profiles, and completion history",
-      "Mobile-first experience for field tasks and local services",
-      "More task categories and community moderation tools",
-      "Production hardening for compliance, security, and scale",
+      "Add dispute resolution and evidence review",
+      "Build reputation, tasker profiles, and completion history",
+      "Improve mobile-first UX for field tasks and local services",
+      "Expand moderation, task categories, and payout reporting",
+      "Harden compliance, security, and production operations",
     ],
   },
 ];
@@ -186,7 +186,7 @@ function contentTypesXml() {
 
 function coreXml() {
   const now = new Date().toISOString();
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>Bountix Pitch Deck</dc:title><dc:creator>Imam Islamuddin</dc:creator><cp:lastModifiedBy>Codex</cp:lastModifiedBy><dcterms:created xsi:type="dcterms:W3CDTF">${now}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${now}</dcterms:modified></cp:coreProperties>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>Bountix Pitch Deck</dc:title><dc:creator>Imam Islamuddin</dc:creator><cp:lastModifiedBy>Imam Islamuddin</cp:lastModifiedBy><dcterms:created xsi:type="dcterms:W3CDTF">${now}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${now}</dcterms:modified></cp:coreProperties>`;
 }
 
 function appXml() {
