@@ -124,9 +124,9 @@ const slides = [
     bullets: [
       "Add dispute resolution and evidence review",
       "Build reputation, tasker profiles, and completion history",
+      "Integrate fiat on-ramp and off-ramp partners for easier USDC access",
       "Improve mobile-first UX for field tasks and local services",
-      "Expand moderation, task categories, service discovery, and payout reporting",
-      "Harden compliance, security, and production operations",
+      "Expand moderation, service discovery, payout reporting, compliance, and security",
     ],
   },
 ];
