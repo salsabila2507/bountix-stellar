@@ -1,6 +1,17 @@
 # Bountix
 
-Public soft-open task marketplace for [bountix.xyz](https://bountix.xyz).
+Bountix is a task marketplace for everyday work in SEA, covering freelance
+tasks, micro-jobs, errands, personal shopping assistance, local services, and
+community requests. It uses Stellar-based USDC escrow to help requesters and
+taskers transact with clearer trust and payment protection.
+
+Production app: https://bountix-stellar.vercel.app
+
+## Stellar Contracts
+
+- Escrow Contract Address: `CBYKG23Q5WJASTOCCRCO22QOEBQFHOJLVUFHVIHB2OC7R2X3I7A67SRZ`
+- USDC Token Contract: `CDXBKHJAEP5DZ7P5QUIZUDFFUFIUMPRVERPQE46KYKA6THW6R7DQMOH5`
+- USDC Classic Issuer: `GCU6VGJXQR6RPRCQ2W55DEOAAFSKFE6UEQYTHCQ2P7NIA3UIS72NJEKL`
 
 > **Read before contributing:** [`docs/constraints.md`](docs/constraints.md) —
 > Supabase free-tier rules, payment direction (USDC on Base only),
@@ -14,6 +25,8 @@ Public soft-open task marketplace for [bountix.xyz](https://bountix.xyz).
 - Framer Motion
 - Supabase auth, profiles, tasks, applications, submissions, messages, and
   legacy waitlist storage
+- Stellar USDC escrow and wallet onboarding
+- Tencent Chat for task participant messaging
 - Vercel-ready deployment
 
 ## Local Setup
