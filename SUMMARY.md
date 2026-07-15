@@ -1,41 +1,52 @@
-# Bountix Stellar — Final Status
+# Bountix Summary
 
-## What works
-- **Soroban contract** (Rust) deployed on testnet — `CDHGTOJVVLMNTWYMUKZV7TFBZRE7JOXSTREE6IQYVZRDVKZE5J4MG7TP`
-- **Admin API** (`/api/soroban/admin-invoke`) — backend signs & submits all txns with deployer key
-- **Full E2E flow** — fund → assign → release → worker receives XLM (tested ✅)
-- **No wallet extension needed** — user only needs a Stellar address (from any wallet/exchange)
-- **Admin panel** — fund, assign, release, refund buttons call admin API
-- **Build passes** — 33 routes, 0 TypeScript errors
+Bountix is a flexible task and service marketplace powered by Stellar USDC
+escrow. It supports task posting, task applications, service offers,
+participant-only chat, notifications, wallet onboarding, admin moderation, and
+wallet payout history.
 
-## How it works
-1. User signs up (email/password) — no crypto wallet needed
-2. User pastes their Stellar receiving address in profile
-3. Admin (platform) funds escrow from deployer wallet — one click
-4. Admin assigns worker — one click
-5. Admin releases escrow — XLM sent directly to worker's address ✅
+## Current Production Links
 
-## Deployed on testnet
+- App: https://bountix-stellar.vercel.app
+- Repository: https://github.com/salsabila2507/bountix-stellar
+- Pitch deck: `docs/bountix-pitch-deck.pptx`
+
+## Stellar Addresses
+
 | Component | Address |
-|---|---|
-| Escrow contract | `CDHGTOJVVLMNTWYMUKZV7TFBZRE7JOXSTREE6IQYVZRDVKZE5J4MG7TP` |
-| XLM SAC | `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` |
-| Deployer | `GAL7J2N7OLOBSOEALO4CM2LY6JNZH54TPMWY5VU3FKGRGYDGAI7UQSVM` |
+| --- | --- |
+| Escrow contract | `CBYKG23Q5WJASTOCCRCO22QOEBQFHOJLVUFHVIHB2OC7R2X3I7A67SRZ` |
+| USDC token contract | `CDXBKHJAEP5DZ7P5QUIZUDFFUFIUMPRVERPQE46KYKA6THW6R7DQMOH5` |
+| USDC classic issuer | `GCU6VGJXQR6RPRCQ2W55DEOAAFSKFE6UEQYTHCQ2P7NIA3UIS72NJEKL` |
 
-## Key files
-- `/contracts/soroban/src/lib.rs` — Rust escrow contract
-- `/lib/stellar-admin.ts` — backend admin invoke (signs with PRIVATE_KEY)
-- `/app/api/soroban/admin-invoke/route.ts` — API endpoint
-- `/lib/stellar.ts` — `invokeSorobanAdmin` client function
-- `/components/marketplace/escrow-fund-panel.tsx` — fund button
-- `/components/marketplace/escrow-release-panel.tsx` — assign + release buttons
-- `/lib/escrow.ts` — contract address, helpers
-- `/lib/payments.ts` — token config
-- `/scripts/test-xlm.mjs` — E2E test script
+## Main Flow
 
-## Resources
-- Soroban RPC: `https://soroban-testnet.stellar.org`
-- Explorer: `https://stellar.expert/`
-- Testnet friendbot: `https://friendbot.stellar.org`
-- Deployer funded with ~9997 XLM (testnet)
+1. User signs in with Google or email/password.
+2. New Google users are routed through wallet setup.
+3. Requester creates a task or a service provider publishes an offer.
+4. Tasker applies and the requester accepts.
+5. Requester funds Stellar USDC escrow.
+6. Tasker completes the work.
+7. Requester or admin releases escrow.
+8. Wallet history shows payout records and token transfers.
 
+## Key Files
+
+- `contracts/soroban/src/lib.rs` - Soroban escrow contract source
+- `lib/stellar-admin.ts` - server-side Soroban admin helpers
+- `lib/stellar.ts` - Stellar client helpers
+- `lib/payments.ts` - Stellar USDC constants
+- `lib/stellar/wallet-context.tsx` - app wallet state
+- `lib/stellar/wallet-store.ts` - browser-encrypted wallet storage
+- `app/auth/oauth-wallet/page.tsx` - Google wallet provisioning
+- `components/marketplace/escrow-fund-panel.tsx` - escrow funding UI
+- `components/admin/escrow-release-admin-panel.tsx` - admin release UI
+- `app/wallet/page.tsx` - wallet dashboard and payout history
+
+## Verification Commands
+
+```bash
+npx tsc --noEmit
+npm run lint
+npm run build
+```
