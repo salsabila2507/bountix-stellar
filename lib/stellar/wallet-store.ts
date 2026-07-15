@@ -146,6 +146,21 @@ export async function createAndStoreSessionWallet(userId: string): Promise<Walle
   return { publicKey, secretKey }
 }
 
+export async function protectSessionWalletWithPincode(
+  pincode: string,
+  userId: string,
+): Promise<WalletAccount> {
+  const stored = getStoredWallet(userId)
+  if (!stored || stored.authMode !== "session") {
+    throw new Error("No session wallet found.")
+  }
+
+  const wallet = await unlockWallet("", userId)
+  const encrypted = await encryptSecret(wallet.secretKey, pincode)
+  saveWallet(wallet.publicKey, encrypted, userId, "password")
+  return wallet
+}
+
 /**
  * Import a raw Stellar secret key (S...) and encrypt it with the given
  * pincode. Throws if the secret is invalid or a wallet already exists.
