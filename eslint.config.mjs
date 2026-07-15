@@ -15,12 +15,7 @@ const eslintConfig = [
       ".next/**",
       ".vercel/**",
       "node_modules/**",
-      // Hardhat tooling (CommonJS, not part of the Next.js app)
-      "hardhat.config.cjs",
-      "scripts/**",
-      "test/**",
       "artifacts/**",
-      "cache/**",
     ],
   },
   ...nextVitals,

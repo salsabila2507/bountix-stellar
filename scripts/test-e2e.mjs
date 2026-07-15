@@ -115,7 +115,6 @@ async function main() {
   }
 
   // Check USDC balance
-  const usdcAddr = Address.fromString(USDC_CONTRACT_ID);
   const deployerAddr = Address.account(kp.rawPublicKey());
   console.log(`\nChecking USDC balance...`);
   try {

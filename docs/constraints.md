@@ -59,14 +59,12 @@ bandwidth. These rules keep us well under those limits.
 ## 2. Payment Direction (Locked)
 
 - **USDC only.** No USDT. No custom token. No BXT. No airdrop framing.
-- **Base-friendly.** Constants live in `lib/payments.ts`:
-  `BASE_MAINNET_CHAIN_ID=8453`, `BASE_MAINNET_USDC_ADDRESS`,
-  `USDC_DECIMALS=6`.
-- Manual payment and Base mainnet escrow are live payment paths.
-  UI labels must not imply USDC rewards or Base escrow are future-only.
-  `escrowOnBaseLive` is true because the escrow contract is deployed.
-- Reason: positions Bountix for Base Builder Grants; avoids regulatory
-  / token launch baggage.
+- **Stellar-first.** Constants live in `lib/payments.ts` and Stellar helpers:
+  Stellar USDC contract address, classic issuer, and 7-decimal token units.
+- Manual payment and Stellar USDC escrow are live payment paths.
+  UI labels must not imply USDC rewards or Stellar escrow are future-only.
+- Reason: positions Bountix for Stellar-powered consumer payments while
+  avoiding regulatory / token launch baggage.
 
 ---
 

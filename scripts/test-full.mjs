@@ -165,8 +165,6 @@ async function main() {
 
   // Init token
   console.log(`\nInitializing token...`);
-  const tokenName = nativeToScVal("TestToken");
-  const tokenSymbol = nativeToScVal("TST");
   await invoke(kp, tokenAddr, "initialize", [
     kp.publicKey(),
     "TestToken",

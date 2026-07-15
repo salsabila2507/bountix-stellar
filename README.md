@@ -14,7 +14,7 @@ Production app: https://bountix-stellar.vercel.app
 - USDC Classic Issuer: `GCU6VGJXQR6RPRCQ2W55DEOAAFSKFE6UEQYTHCQ2P7NIA3UIS72NJEKL`
 
 > **Read before contributing:** [`docs/constraints.md`](docs/constraints.md) —
-> Supabase free-tier rules, payment direction (USDC on Base only),
+> Supabase free-tier rules, payment direction (USDC on Stellar only),
 > legacy waitlist protection, migration policy, and design lock.
 
 ## Stack

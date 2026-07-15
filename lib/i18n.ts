@@ -740,7 +740,7 @@ const en = {
   "profile.links": "Links",
   "profile.noBio": "No bio yet.",
   "profile.noPublicLinks": "No public links yet.",
-  "profile.walletBase": "Wallet (Base)",
+  "profile.walletBase": "Wallet (Stellar)",
   "profile.walletComing": "Wallet addresses support Stellar USDC escrow and payment coordination.",
 
   "applicants.back": "Back to task",

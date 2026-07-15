@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import {
   createAndStoreSessionWallet,
-  getPublicKey as getStoredWalletPublicKey,
+  getStoredWallet,
   unlockWallet,
 } from "@/lib/stellar/wallet-store";
 import { ensureUsdcTrustline } from "@/lib/stellar/usdc-trustline";
@@ -37,13 +37,21 @@ export default function OAuthWalletSetupPage() {
           return;
         }
 
-        const existingPublicKey = getStoredWalletPublicKey(data.user.id);
-        const wallet = existingPublicKey
-          ? await unlockWallet("", data.user.id)
-          : await createAndStoreSessionWallet(data.user.id);
+        const stored = getStoredWallet(data.user.id);
+        if (stored && stored.authMode !== "session") {
+          await saveWalletAddress(stored.publicKey);
+        } else {
+          const wallet = stored
+            ? await unlockWallet("", data.user.id)
+            : await createAndStoreSessionWallet(data.user.id);
 
-        await ensureUsdcTrustline(wallet.secretKey);
-        await saveWalletAddress(wallet.publicKey);
+          await saveWalletAddress(wallet.publicKey);
+          try {
+            await ensureUsdcTrustline(wallet.secretKey);
+          } catch (error) {
+            console.warn("[oauth-wallet] USDC payout setup skipped", error);
+          }
+        }
         window.dispatchEvent(new Event("bountix-wallet-updated"));
         if (!cancelled) {
           router.replace("/dashboard/profile");

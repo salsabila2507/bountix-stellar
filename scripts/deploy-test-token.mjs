@@ -84,11 +84,6 @@ async function main() {
   // 1. Upload token WASM (Soroban built-in token contract)
   // ============================================================
   console.log("\n1. Deploying test token...");
-  const source = await server.getAccount(kp.publicKey());
-  const wasmHash = process.env.TOKEN_WASM_HASH
-    ? Buffer.from(process.env.TOKEN_WASM_HASH, "hex")
-    : null;
-
   // Use the built-in token WASM via the TokenClient or deploy our own
   // For simplicity, we deploy a custom token contract
   // Actually, let's just use the built-in SAC style token contract
@@ -104,8 +99,6 @@ async function main() {
   
   // Let me use a different approach: wrap a new classic asset as SAC
   // Or just create a simple mintable token
-  
-  const TOKEN_WASM_PATH = join(ROOT, "contracts/soroban/target/wasm32v1-none/release/bountix_escrow.wasm");
   
   // Actually, for a test token, I'll deploy another instance of our contract pattern
   // or better yet, create a simple token contract
