@@ -23,6 +23,7 @@ import { SubmitWorkForm } from "@/components/marketplace/submit-work-form";
 import { WithdrawApplicationButton } from "@/components/marketplace/withdraw-application-button";
 import { RaiseDisputeButton } from "@/components/marketplace/raise-dispute-button";
 import { EscrowFundPanel } from "@/components/marketplace/escrow-fund-panel";
+import { stellarTxUrl } from "@/lib/escrow";
 import { SiteHeader } from "@/components/site-header";
 import {
   createTranslator,
@@ -330,7 +331,7 @@ export default async function TaskDetailPage({ params }: RouteParams) {
                           {t("taskDetail.usdcLocked")}
                         </p>
                         <a
-                          href={`https://stellar.expert/tx/${dbTask.escrow_tx_hash}`}
+                          href={stellarTxUrl(dbTask.escrow_tx_hash)}
                           target="_blank"
                           rel="noreferrer"
                           className="mt-4 inline-flex items-center gap-2 break-all rounded-lg border-2 border-[#140625] bg-white px-3 py-2 text-sm font-black text-[#7c3cff] shadow-[3px_3px_0_#140625] transition hover:bg-[#38e7ff]"

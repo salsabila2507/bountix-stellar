@@ -66,7 +66,7 @@ export function escrowContractForTask(input: {
 
 /** stellar.expert tx URL helper for surfacing the funding receipt. */
 export function stellarTxUrl(txHash: string): string {
-  return `https://stellar.expert/tx/${txHash}`;
+  return `https://stellar.expert/explorer/testnet/tx/${txHash}`;
 }
 
 /** Check if the Soroban escrow contract has been deployed. */

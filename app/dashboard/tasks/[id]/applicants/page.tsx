@@ -30,6 +30,7 @@ import {
   type DbApplication,
   type DbSubmission,
 } from "@/lib/applications";
+import { stellarTxUrl } from "@/lib/escrow";
 
 
 export const dynamic = "force-dynamic";
@@ -538,7 +539,7 @@ export default async function ApplicantsPage({ params }: RouteParams) {
                                 {s.assign_tx_hash ? (
                                   <div className="mt-2 space-y-1">
                                     <a
-                                      href={`https://stellar.expert/tx/${s.assign_tx_hash}`}
+                                      href={stellarTxUrl(s.assign_tx_hash)}
                                       target="_blank"
                                       rel="noreferrer"
                                       className="block text-xs font-black text-[#7c3cff] hover:underline"
@@ -550,7 +551,7 @@ export default async function ApplicantsPage({ params }: RouteParams) {
                                 {s.release_tx_hash ? (
                                   <div className="space-y-1">
                                     <a
-                                      href={`https://stellar.expert/tx/${s.release_tx_hash}`}
+                                      href={stellarTxUrl(s.release_tx_hash)}
                                       target="_blank"
                                       rel="noreferrer"
                                       className="block text-xs font-black text-[#7c3cff] hover:underline"

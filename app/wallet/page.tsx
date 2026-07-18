@@ -10,6 +10,7 @@ import { ConfirmationModal } from "@/components/wallet/confirmation-modal"
 import { STELLAR_USDC_ADDRESS, USDC_CLASSIC_ISSUER, USDC_CLASSIC_CODE } from "@/lib/payments"
 import { getLocalTransactions, type LocalTx } from "@/lib/stellar/transaction-store"
 import { ensureUsdcTrustline, hasUsdcTrustline } from "@/lib/stellar/usdc-trustline"
+import { stellarTxUrl } from "@/lib/escrow"
 
 interface SorobanTransfer {
   txHash: string
@@ -406,7 +407,7 @@ export default function WalletDashboard() {
                     </td>
                     <td className="py-2 pr-4 font-mono text-xs text-[#5a3b66] truncate max-w-[120px]">
                       {payout.txHash ? (
-                        <a href={`https://stellar.expert/tx/${payout.txHash}`} target="_blank" rel="noreferrer" className="text-[#7c3cff] hover:underline">
+                        <a href={stellarTxUrl(payout.txHash)} target="_blank" rel="noreferrer" className="text-[#7c3cff] hover:underline">
                           {payout.txHash.slice(0, 10)}…
                         </a>
                       ) : "-"}
